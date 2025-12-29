@@ -165,3 +165,13 @@ func generateID(file, title string) string {
 	hash := sha256.Sum256([]byte(file + ":" + title))
 	return hex.EncodeToString(hash[:8])
 }
+
+func (s *Storage) RemoveTopic(id string) error {
+	for i, t := range s.data.Topics {
+		if t.ID == id {
+			s.data.Topics = append(s.data.Topics[:i], s.data.Topics[i+1:]...)
+			return s.Save()
+		}
+	}
+	return nil
+}
