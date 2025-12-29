@@ -2,7 +2,7 @@
 
 Spaced repetition for your wiki notes. Never forget what you learn.
 
-Recall scans your markdown wiki for topics marked with `@review`, tracks them using the FSRS algorithm, and reminds you when it's time to review.
+Recall scans your markdown wiki for topics marked with `review: true` in YAML frontmatter, tracks them using the FSRS algorithm, and reminds you when it's time to review.
 
 ## Installation
 
@@ -25,17 +25,17 @@ go build ./cmd/recall/
 recall init ~/wiki
 ```
 
-2. Mark topics for review in your markdown files:
+2. Mark topics for review using YAML frontmatter:
 ```markdown
-## Kubernetes Architecture @review #devops #k8s
+---
+tags:
+  - devops
+  - k8s
+review: true
+---
+# Kubernetes Architecture
 
 Content about kubernetes...
-```
-
-```markdown
-## Binary Search @review #algorithms #leetcode
-
-Content about binary search...
 ```
 
 3. Scan your wiki:
@@ -54,7 +54,7 @@ recall review "Kubernetes Architecture"
 ```
 
 ## Commands
-* For more commands look at:
+
 ```bash
 recall -h
 ```
@@ -62,10 +62,9 @@ recall -h
 | Command                | Description                                     |
 |------------------------|-------------------------------------------------|
 | recall init <path>     | Initialize with wiki path                       |
-| recall scan            | Scan wiki for @review topics                    |
-| recall status          | Show overview (total, due today, due this week) |
-| recall due             | List topics due for review                      |
-| recall due --week      | List topics due this week                       |
+| recall scan            | Scan wiki for review topics                     |
+| recall due             | Show status and topics due for review           |
+| recall due --week      | Show topics due this week                       |
 | recall due --tag <tag> | Filter by tag                                   |
 | recall review <title>  | Review a topic and rate recall                  |
 | recall tags            | List all tags with counts                       |
@@ -73,18 +72,28 @@ recall -h
 
 ## Topic Format
 
-Mark any markdown heading with @review and optional #tags:
+Mark any markdown file for review using YAML frontmatter:
 
 ```markdown
-## Topic Title @review #tag1 #tag2
+---
+id: "Topic Title"
+tags:
+  - tag1
+  - tag2
+review: true
+---
+
+Your content here...
 ```
 
-- @review - Marks the heading as a reviewable topic
-- #tag - Categorize topics (e.g., #leetcode, #architecture)
+- `review: true` - Marks the file as a reviewable topic
+- `tags` - Categorize topics (e.g., leetcode, architecture)
 
-FSRS Algorithm
+The topic title is taken from the `id` field in frontmatter, or the filename if not set.
 
-Recall uses https://github.com/open-spaced-repetition/fsrs4anki (Free Spaced Repetition Scheduler), the same algorithm used in Anki. When reviewing, rate your recall:
+## FSRS Algorithm
+
+Recall uses [FSRS](https://github.com/open-spaced-repetition/fsrs4anki) (Free Spaced Repetition Scheduler), the same algorithm used in Anki. When reviewing, rate your recall:
 
 | Rating    | Meaning              | Effect           |
 |-----------|----------------------|------------------|
@@ -99,12 +108,17 @@ Recall uses https://github.com/open-spaced-repetition/fsrs4anki (Free Spaced Rep
 
 1. **Take notes in your wiki:**
 ```markdown
-## Docker Networking @review #devops #docker
+---
+tags:
+  - devops
+  - docker
+review: true
+---
+# Docker Networking
 
 - Bridge network: default, containers on same host
 - Host network: shares host's network stack
 - Overlay: multi-host communication
-...
 ```
 
 2. **Run scan to track it:**
@@ -117,8 +131,6 @@ This adds the topic to tracking. It's due immediately (today).
 
 1. **Check what's due:**
 ```bash
-recall status
-# or
 recall due
 ```
 
@@ -138,7 +150,7 @@ recall due
 
 | Action | When |
 |--------|------|
-| Add `@review #tags` to heading | When learning something new |
+| Add frontmatter with `review: true` | When learning something new |
 | `recall scan` | After adding new topics |
 | `recall due` | Daily - see what to review |
 | `recall review "Topic"` | For each due topic |

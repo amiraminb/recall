@@ -11,7 +11,7 @@ import (
 
 var dueCmd = &cobra.Command{
 	Use:   "due",
-	Short: "List topics due for review",
+	Short: "Show status and topics due for review",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		store, err := getStorage()
 		if err != nil {
@@ -22,13 +22,25 @@ var dueCmd = &cobra.Command{
 		week, _ := cmd.Flags().GetBool("week")
 
 		now := time.Now()
-		until := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, now.Location())
-		if week {
-			until = until.AddDate(0, 0, 7)
-		}
+		today := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, now.Location())
+		weekEnd := today.AddDate(0, 0, 7)
 
+		// Summary
+		allTopics := store.GetAllTopics()
+		dueToday := store.GetDueTopics(today)
+		dueWeek := store.GetDueTopics(weekEnd)
+
+		fmt.Printf("Topics: %d | Due today: %d | Due this week: %d\n\n",
+			len(allTopics), len(dueToday), len(dueWeek))
+
+		// Get topics based on flags
+		until := today
+		if week {
+			until = weekEnd
+		}
 		topics := store.GetDueTopics(until)
 
+		// Filter by tag if specified
 		if tag != "" {
 			var filtered []storage.Topic
 			for _, t := range topics {
@@ -47,11 +59,11 @@ var dueCmd = &cobra.Command{
 			return nil
 		}
 
-		label := "today"
+		label := "Due today:"
 		if week {
-			label = "this week"
+			label = "Due this week:"
 		}
-		fmt.Printf("Topics due %s:\n\n", label)
+		fmt.Println(label)
 
 		for _, t := range topics {
 			days := int(time.Until(t.Card.Due).Hours() / 24)
@@ -61,7 +73,12 @@ var dueCmd = &cobra.Command{
 			} else if days > 0 {
 				dueStr = fmt.Sprintf("in %d days", days)
 			}
-			fmt.Printf("  - %s\n    [%s] due %s\n", t.Title, strings.Join(t.Tags, ", "), dueStr)
+
+			tagStr := ""
+			if len(t.Tags) > 0 {
+				tagStr = fmt.Sprintf(" (%s)", strings.Join(t.Tags, ", "))
+			}
+			fmt.Printf("  - %s%s - %s\n", t.Title, tagStr, dueStr)
 		}
 
 		return nil
