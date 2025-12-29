@@ -92,3 +92,62 @@ Recall uses https://github.com/open-spaced-repetition/fsrs4anki (Free Spaced Rep
 | 2 - Hard  | Difficult to recall  | Shorter interval |
 | 3 - Good  | Recalled with effort | Normal interval  |
 | 4 - Easy  | Effortless recall    | Longer interval  |
+
+## Workflow
+
+### When you learn something new
+
+1. **Take notes in your wiki:**
+```markdown
+## Docker Networking @review #devops #docker
+
+- Bridge network: default, containers on same host
+- Host network: shares host's network stack
+- Overlay: multi-host communication
+...
+```
+
+2. **Run scan to track it:**
+```bash
+recall scan
+```
+This adds the topic to tracking. It's due immediately (today).
+
+### Daily routine
+
+1. **Check what's due:**
+```bash
+recall status
+# or
+recall due
+```
+
+2. **For each due topic:**
+   - Open the file, read your notes
+   - Run review:
+   ```bash
+   recall review "Docker Networking"
+   ```
+   - Rate how well you remembered (1-4)
+
+3. **FSRS schedules next review:**
+   - Good recall → longer interval (e.g., 3 days → 7 days → 14 days)
+   - Poor recall → shorter interval (reset or reduced)
+
+### Summary
+
+| Action | When |
+|--------|------|
+| Add `@review #tags` to heading | When learning something new |
+| `recall scan` | After adding new topics |
+| `recall due` | Daily - see what to review |
+| `recall review "Topic"` | For each due topic |
+
+## Data Storage
+
+- Config: `~/.config/recall/config.json`
+- Review data: `<wiki>/.srs/reviews.json`
+
+## License
+
+MIT
