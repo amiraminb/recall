@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/amiraminb/recall/internal/parser"
@@ -11,7 +12,15 @@ import (
 
 var scanCmd = &cobra.Command{
 	Use:   "scan",
-	Short: "Scan wiki for @review topics",
+	Short: "Scan wiki for topics to review",
+	Long: `Scan your wiki directory for files marked with 'review: true' in frontmatter.
+
+This command:
+  - Discovers new topics and adds them to tracking
+  - Updates tags if they've changed in the frontmatter
+  - Detects orphaned topics (renamed or deleted files)
+
+Run this after adding new notes or modifying tags.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		wikiPath, err := getWikiPath()
 		if err != nil {
@@ -32,15 +41,25 @@ var scanCmd = &cobra.Command{
 		foundTitles := make(map[string]bool)
 
 		added := 0
+		updated := 0
 		for _, t := range topics {
 			relPath, _ := filepath.Rel(wikiPath, t.File)
 			foundTitles[t.Title] = true
 
 			existing := store.GetTopicByTitle(t.Title)
 			if existing == nil {
+				// New topic
 				store.AddTopic(t.Title, relPath, t.Tags)
 				added++
 				fmt.Printf("  + %s [%s]\n", t.Title, strings.Join(t.Tags, ", "))
+			} else {
+				// Check if tags changed
+				if !slices.Equal(existing.Tags, t.Tags) {
+					existing.Tags = t.Tags
+					store.UpdateTopic(existing)
+					updated++
+					fmt.Printf("  ~ %s [%s]\n", t.Title, strings.Join(t.Tags, ", "))
+				}
 			}
 		}
 
@@ -53,15 +72,14 @@ var scanCmd = &cobra.Command{
 			}
 		}
 
-		fmt.Printf("\nScanned %d topics, added %d new\n", len(topics), added)
+		fmt.Printf("\nScanned: %d topics | Added: %d | Updated: %d\n", len(topics), added, updated)
 
 		if len(orphans) > 0 {
-			fmt.Printf("\nWarning: %d orphaned topics (not found in wiki):\n", len(orphans))
+			fmt.Printf("\nOrphaned topics (%d):\n", len(orphans))
 			for _, title := range orphans {
 				fmt.Printf("  ? %s\n", title)
 			}
-			fmt.Println("\nThese may have been renamed or deleted.")
-			fmt.Println("Use 'recall remove <title>' to clean up.")
+			fmt.Println("\nUse 'recall remove <title>' to clean up.")
 		}
 
 		return nil

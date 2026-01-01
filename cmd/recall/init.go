@@ -11,9 +11,17 @@ import (
 )
 
 var initCmd = &cobra.Command{
-	Use:   "init [wiki-path]",
+	Use:   "init <wiki-path>",
 	Short: "Initialize recall with your wiki path",
-	Args:  cobra.ExactArgs(1),
+	Long: `Set up recall by specifying your wiki directory.
+
+This creates a config file at ~/.config/recall/config.json and prepares
+the .srs directory in your wiki for storing review data.
+
+Example:
+  recall init ~/wiki
+  recall init ~/notes/obsidian`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		wikiPath := args[0]
 

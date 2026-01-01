@@ -7,9 +7,19 @@ import (
 )
 
 var removeCmd = &cobra.Command{
-	Use:   "remove [topic-title]",
+	Use:   "remove <topic-title>",
 	Short: "Remove a topic from tracking",
-	Args:  cobra.ExactArgs(1),
+	Long: `Stop tracking a topic and remove it from your review schedule.
+
+Use this to clean up orphaned topics (files that were renamed or deleted)
+or topics you no longer want to review.
+
+Note: This only removes the topic from recall's tracking. Your actual
+note file is not affected.
+
+Example:
+  recall remove "Old Topic"`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		store, err := getStorage()
 		if err != nil {

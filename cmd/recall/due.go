@@ -12,6 +12,15 @@ import (
 var dueCmd = &cobra.Command{
 	Use:   "due",
 	Short: "Show status and topics due for review",
+	Long: `Display your review status and list topics that need reviewing.
+
+Shows a summary of total topics, how many are due today, and due this week.
+Then lists the topics you should review, with their tags and due status.
+
+Examples:
+  recall due             # Show topics due today
+  recall due --week      # Show topics due this week
+  recall due --tag k8s   # Show only k8s-tagged topics due`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		store, err := getStorage()
 		if err != nil {
