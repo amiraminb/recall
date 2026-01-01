@@ -8,27 +8,50 @@ import (
 )
 
 var historyCmd = &cobra.Command{
-	Use:   "history <topic-title>",
-	Short: "Show review history for a topic",
-	Long: `Display the complete review history for a specific topic.
+	Use:   "history [topic-title]",
+	Short: "Show reading and review history",
+	Long: `Display history for all topics or a specific topic.
 
-Shows each review date and the rating you gave, helping you track
-your learning progress over time.
+Without arguments, shows all topics with their read status and first read date.
+With a topic title, shows the complete review history for that topic.
 
-Example:
-  recall history "Docker Networking"
-
-Output:
-  Dec 1, 2024 - Good
-  Dec 5, 2024 - Easy
-  Dec 15, 2024 - Good`,
-	Args: cobra.ExactArgs(1),
+Examples:
+  recall history                     # List all topics with status
+  recall history "Docker Networking" # Show full history for topic`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		store, err := getStorage()
 		if err != nil {
 			return err
 		}
 
+		// No args: show all topics with status
+		if len(args) == 0 {
+			topics := store.GetAllTopics()
+			if len(topics) == 0 {
+				fmt.Println("No topics tracked yet.")
+				return nil
+			}
+
+			fmt.Println("All topics:\n")
+			for _, t := range topics {
+				status := "unread"
+				firstRead := ""
+
+				if t.Card.State != fsrs.New {
+					status = "read"
+					history := store.GetReviewHistory(t.ID)
+					if len(history) > 0 {
+						firstRead = fmt.Sprintf(" (first: %s)", history[0].ReviewedAt.Format("Jan 2, 2006"))
+					}
+				}
+
+				fmt.Printf("  - %s [%s]%s\n", t.Title, status, firstRead)
+			}
+			return nil
+		}
+
+		// With args: show history for specific topic
 		title := args[0]
 		topic := store.GetTopicByTitle(title)
 		if topic == nil {
@@ -37,20 +60,32 @@ Output:
 
 		history := store.GetReviewHistory(topic.ID)
 		if len(history) == 0 {
-			fmt.Printf("No review history for: %s\n", title)
+			fmt.Printf("No history for: %s\n", title)
 			return nil
 		}
 
-		fmt.Printf("Review history for: %s\n\n", title)
-		ratingNames := map[fsrs.Rating]string{
-			fsrs.Again: "Again",
-			fsrs.Hard:  "Hard",
-			fsrs.Good:  "Good",
-			fsrs.Easy:  "Easy",
-		}
+		fmt.Printf("History for: %s\n\n", title)
 
-		for _, r := range history {
-			fmt.Printf("  %s - %s\n", r.ReviewedAt.Format("Jan 2, 2006"), ratingNames[r.Rating])
+		for i, r := range history {
+			if i == 0 {
+				// First entry is the initial read
+				understandingNames := map[fsrs.Rating]string{
+					1: "didn't understand",
+					2: "partially understood",
+					3: "understood well",
+					4: "mastered",
+				}
+				fmt.Printf("  %s - First read (%s)\n", r.ReviewedAt.Format("Jan 2, 2006"), understandingNames[r.Rating])
+			} else {
+				// Subsequent entries are reviews
+				ratingNames := map[fsrs.Rating]string{
+					fsrs.Again: "Again",
+					fsrs.Hard:  "Hard",
+					fsrs.Good:  "Good",
+					fsrs.Easy:  "Easy",
+				}
+				fmt.Printf("  %s - Review: %s\n", r.ReviewedAt.Format("Jan 2, 2006"), ratingNames[r.Rating])
+			}
 		}
 
 		return nil
