@@ -2,8 +2,11 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/amiraminb/recall/internal/fsrs"
+	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
 
@@ -33,21 +36,26 @@ Examples:
 				return nil
 			}
 
-			fmt.Println("All topics:\n")
+			table := tablewriter.NewTable(os.Stdout)
+			table.Header("Topic", "Tags", "Read Date")
+
+			var rows [][]any
 			for _, t := range topics {
-				status := "unread"
-				firstRead := ""
+				tags := strings.Join(t.Tags, ", ")
+				readDate := "-"
 
 				if t.Card.State != fsrs.New {
-					status = "read"
 					history := store.GetReviewHistory(t.ID)
 					if len(history) > 0 {
-						firstRead = fmt.Sprintf(" (first: %s)", history[0].ReviewedAt.Format("Jan 2, 2006"))
+						readDate = history[0].ReviewedAt.Format("Jan 2, 2006")
 					}
 				}
 
-				fmt.Printf("  - %s [%s]%s\n", t.Title, status, firstRead)
+				rows = append(rows, []any{t.Title, tags, readDate})
 			}
+
+			table.Bulk(rows)
+			table.Render()
 			return nil
 		}
 
@@ -66,28 +74,33 @@ Examples:
 
 		fmt.Printf("History for: %s\n\n", title)
 
+		table := tablewriter.NewTable(os.Stdout)
+		table.Header("Date", "Type", "Rating")
+
+		var rows [][]any
 		for i, r := range history {
+			date := r.ReviewedAt.Format("Jan 2, 2006")
 			if i == 0 {
-				// First entry is the initial read
 				understandingNames := map[fsrs.Rating]string{
 					1: "didn't understand",
 					2: "partially understood",
 					3: "understood well",
 					4: "mastered",
 				}
-				fmt.Printf("  %s - First read (%s)\n", r.ReviewedAt.Format("Jan 2, 2006"), understandingNames[r.Rating])
+				rows = append(rows, []any{date, "First read", understandingNames[r.Rating]})
 			} else {
-				// Subsequent entries are reviews
 				ratingNames := map[fsrs.Rating]string{
 					fsrs.Again: "Again",
 					fsrs.Hard:  "Hard",
 					fsrs.Good:  "Good",
 					fsrs.Easy:  "Easy",
 				}
-				fmt.Printf("  %s - Review: %s\n", r.ReviewedAt.Format("Jan 2, 2006"), ratingNames[r.Rating])
+				rows = append(rows, []any{date, "Review", ratingNames[r.Rating]})
 			}
 		}
 
+		table.Bulk(rows)
+		table.Render()
 		return nil
 	},
 }
