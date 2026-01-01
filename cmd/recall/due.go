@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/amiraminb/recall/internal/fsrs"
 	"github.com/amiraminb/recall/internal/storage"
 	"github.com/spf13/cobra"
 )
@@ -87,7 +88,13 @@ Examples:
 			if len(t.Tags) > 0 {
 				tagStr = fmt.Sprintf(" (%s)", strings.Join(t.Tags, ", "))
 			}
-			fmt.Printf("  - %s%s - %s\n", t.Title, tagStr, dueStr)
+
+			// Show action needed
+			action := "review"
+			if t.Card.State == fsrs.New {
+				action = "read"
+			}
+			fmt.Printf("  - %s%s - %s [%s]\n", t.Title, tagStr, dueStr, action)
 		}
 
 		return nil

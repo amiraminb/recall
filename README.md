@@ -63,12 +63,14 @@ recall -h
 |------------------------|-------------------------------------------------|
 | recall init <path>     | Initialize with wiki path                       |
 | recall scan            | Scan wiki for review topics                     |
-| recall due             | Show status and topics due for review           |
+| recall due             | Show status and topics due                      |
 | recall due --week      | Show topics due this week                       |
 | recall due --tag <tag> | Filter by tag                                   |
+| recall read <title>    | Mark first read and schedule first review       |
 | recall review <title>  | Review a topic and rate recall                  |
 | recall tags            | List all tags with counts                       |
 | recall history <title> | Show review history for a topic                 |
+| recall remove <title>  | Remove a topic from tracking                    |
 
 ## Topic Format
 
@@ -125,7 +127,12 @@ review: true
 ```bash
 recall scan
 ```
-This adds the topic to tracking. It's due immediately (today).
+
+3. **Mark as read after studying:**
+```bash
+recall read "Docker Networking"
+```
+Rate your understanding (1-4) to schedule your first review.
 
 ### Daily routine
 
@@ -152,8 +159,9 @@ recall due
 |--------|------|
 | Add frontmatter with `review: true` | When learning something new |
 | `recall scan` | After adding new topics |
-| `recall due` | Daily - see what to review |
-| `recall review "Topic"` | For each due topic |
+| `recall due` | Daily - see what needs attention |
+| `recall read "Topic"` | First time reading a topic |
+| `recall review "Topic"` | For topics due for review |
 
 ## Data Storage
 

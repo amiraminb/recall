@@ -38,6 +38,11 @@ Example:
 			return fmt.Errorf("topic not found: %s", title)
 		}
 
+		// Check if topic hasn't been read yet
+		if topic.Card.State == fsrs.New {
+			return fmt.Errorf("topic not yet read, use 'recall read \"%s\"' first", title)
+		}
+
 		fmt.Printf("Reviewing: %s\n\n", topic.Title)
 		fmt.Println("How well did you recall this topic?")
 		fmt.Println("  1) Again - Forgot completely")
