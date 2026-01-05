@@ -80,6 +80,11 @@ func (f *FSRS) nextRecallStability(card Card, rating Rating) float64 {
 	s := card.Stability
 	d := card.Difficulty
 
+	// Guard against zero or negative stability which causes NaN
+	if s <= 0 {
+		s = f.initStability(rating)
+	}
+
 	hardPenalty := 1.0
 	if rating == Hard {
 		hardPenalty = w[12]
