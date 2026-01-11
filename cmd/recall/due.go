@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/fatih/color"
@@ -81,6 +82,15 @@ Examples:
 		table := tablewriter.NewWriter(os.Stdout)
 		table.Header("Title", "Due", "Action")
 
+		type dueRow struct {
+			title string
+			due   string
+			days  int
+			act   string
+		}
+
+		rows := make([]dueRow, 0, len(topics))
+
 		for _, t := range topics {
 			days := int(time.Until(t.Card.Due).Hours() / 24)
 			dueStr := "today"
@@ -95,7 +105,27 @@ Examples:
 				action = color.New(color.FgBlue).Sprint("read")
 			}
 
-			table.Append(t.Title, colorDue(days, dueStr), action)
+			rows = append(rows, dueRow{
+				title: t.Title,
+				due:   colorDue(days, dueStr),
+				days:  days,
+				act:   action,
+			})
+		}
+
+		sort.Slice(rows, func(i, j int) bool {
+			ri, rj := statusRank(rows[i].days), statusRank(rows[j].days)
+			if ri != rj {
+				return ri < rj
+			}
+			if rows[i].days != rows[j].days {
+				return rows[i].days < rows[j].days
+			}
+			return rows[i].title < rows[j].title
+		})
+
+		for _, r := range rows {
+			table.Append(truncateText(r.title, maxTitleWidth), r.due, r.act)
 		}
 
 		table.Render()
@@ -112,6 +142,29 @@ func colorDue(days int, text string) string {
 		return color.New(color.FgMagenta).Sprint(text)
 	}
 	return color.New(color.FgCyan).Sprint(text)
+}
+
+func statusRank(days int) int {
+	if days < 0 {
+		return 0 // overdue
+	}
+	if days == 0 {
+		return 1 // today
+	}
+	return 2 // future
+}
+
+const maxTitleWidth = 48
+
+func truncateText(text string, max int) string {
+	r := []rune(text)
+	if len(r) <= max {
+		return text
+	}
+	if max <= 1 {
+		return string(r[:max])
+	}
+	return string(r[:max-1]) + "…"
 }
 
 func init() {
