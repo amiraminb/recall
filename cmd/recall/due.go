@@ -2,8 +2,11 @@ package main
 
 import (
 	"fmt"
-	"strings"
+	"os"
 	"time"
+
+	"github.com/fatih/color"
+	"github.com/olekukonko/tablewriter"
 
 	"github.com/amiraminb/recall/internal/fsrs"
 	"github.com/amiraminb/recall/internal/storage"
@@ -16,7 +19,7 @@ var dueCmd = &cobra.Command{
 	Long: `Display your review status and list topics that need reviewing.
 
 Shows a summary of total topics, how many are due today, and due this week.
-Then lists the topics you should review, with their tags and due status.
+Then lists the topics you should review, with their due status.
 
 Examples:
   recall due             # Show topics due today
@@ -75,6 +78,9 @@ Examples:
 		}
 		fmt.Println(label)
 
+		table := tablewriter.NewWriter(os.Stdout)
+		table.Header("Title", "Due", "Action")
+
 		for _, t := range topics {
 			days := int(time.Until(t.Card.Due).Hours() / 24)
 			dueStr := "today"
@@ -84,21 +90,28 @@ Examples:
 				dueStr = fmt.Sprintf("in %d days", days)
 			}
 
-			tagStr := ""
-			if len(t.Tags) > 0 {
-				tagStr = fmt.Sprintf(" (%s)", strings.Join(t.Tags, ", "))
+			action := color.New(color.FgGreen).Sprint("review")
+			if t.Card.State == fsrs.New {
+				action = color.New(color.FgBlue).Sprint("read")
 			}
 
-			// Show action needed
-			action := "review"
-			if t.Card.State == fsrs.New {
-				action = "read"
-			}
-			fmt.Printf("  - %s%s - %s [%s]\n", t.Title, tagStr, dueStr, action)
+			table.Append(t.Title, colorDue(days, dueStr), action)
 		}
+
+		table.Render()
 
 		return nil
 	},
+}
+
+func colorDue(days int, text string) string {
+	if days < 0 {
+		return color.New(color.FgRed).Sprint(text)
+	}
+	if days == 0 {
+		return color.New(color.FgMagenta).Sprint(text)
+	}
+	return color.New(color.FgCyan).Sprint(text)
 }
 
 func init() {
