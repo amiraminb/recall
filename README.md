@@ -67,6 +67,7 @@ recall -h
 | recall due --week      | Show topics due this week                       |
 | recall due --tag <tag> | Filter by tag                                   |
 | recall read <title>    | Mark first read and schedule first review       |
+| recall open <title>    | Open the first markdown link in a topic         |
 | recall review <title>  | Review a topic and rate recall                  |
 | recall tags            | List all tags with counts                       |
 | recall history <title> | Show review history for a topic                 |
@@ -161,6 +162,7 @@ recall due
 | `recall scan` | After adding new topics |
 | `recall due` | Daily - see what needs attention |
 | `recall read "Topic"` | First time reading a topic |
+| `recall open "Topic"` | Open the first link in a topic |
 | `recall review "Topic"` | For topics due for review |
 
 ## Data Storage

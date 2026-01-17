@@ -1,6 +1,6 @@
 module github.com/amiraminb/recall
 
-go 1.25.3
+go 1.25.6
 
 require (
 	github.com/olekukonko/tablewriter v1.1.2
