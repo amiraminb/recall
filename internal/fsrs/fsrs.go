@@ -25,7 +25,11 @@ func (f *FSRS) Review(card Card, rating Rating, now time.Time) Card {
 	}
 
 	interval := f.nextInterval(card.Stability)
-	card.Due = now.AddDate(0, 0, interval)
+	scheduleBase := now
+	if card.Due.After(now) {
+		scheduleBase = card.Due
+	}
+	card.Due = scheduleBase.AddDate(0, 0, interval)
 
 	return card
 }
