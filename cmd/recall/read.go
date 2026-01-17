@@ -63,12 +63,11 @@ Example:
 		daysMap := map[int]int{1: 1, 2: 2, 3: 4, 4: 7}
 		days := daysMap[input]
 
-		// Update card state
+		// Initialize card using FSRS on first read
 		now := time.Now()
-		topic.Card.State = fsrs.Learning
+		scheduler := fsrs.NewScheduler()
+		topic.Card = scheduler.Review(fsrs.NewCard(), fsrs.Rating(input), now)
 		topic.Card.Due = now.AddDate(0, 0, days)
-		topic.Card.LastReview = now
-		topic.Card.Reps = 1
 
 		if err := store.UpdateTopic(topic); err != nil {
 			return err
