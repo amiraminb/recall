@@ -25,7 +25,8 @@ Understanding levels:
 
 Example:
   recall read "Docker Networking"`,
-	Args: cobra.ExactArgs(1),
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeTopicTitles,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		store, err := getStorage()
 		if err != nil {

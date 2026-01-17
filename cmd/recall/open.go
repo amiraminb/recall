@@ -23,7 +23,8 @@ var openCmd = &cobra.Command{
 
 Example:
   recall open "Kubernetes Architecture"`,
-	Args: cobra.ExactArgs(1),
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeTopicTitles,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		wikiPath, err := getWikiPath()
 		if err != nil {
@@ -98,6 +99,28 @@ func findTopicFile(wikiPath, title string) (string, error) {
 	}
 
 	return matches[0], nil
+}
+
+func completeTopicTitles(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	wikiPath, err := getWikiPath()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+
+	titles, err := listWikiTitles(wikiPath)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+
+	prefix := strings.ToLower(toComplete)
+	var matches []string
+	for _, title := range titles {
+		if strings.HasPrefix(strings.ToLower(title), prefix) {
+			matches = append(matches, title)
+		}
+	}
+
+	return matches, cobra.ShellCompDirectiveNoFileComp
 }
 
 func findFirstLink(filePath string) (string, error) {

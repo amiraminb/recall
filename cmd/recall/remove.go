@@ -19,7 +19,8 @@ note file is not affected.
 
 Example:
   recall remove "Old Topic"`,
-	Args: cobra.ExactArgs(1),
+	Args:              cobra.ExactArgs(1),
+	ValidArgsFunction: completeTopicTitles,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		store, err := getStorage()
 		if err != nil {

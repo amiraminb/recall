@@ -21,7 +21,8 @@ With a topic title, shows the complete review history for that topic.
 Examples:
   recall history                     # List all topics with status
   recall history "Docker Networking" # Show full history for topic`,
-	Args: cobra.MaximumNArgs(1),
+	Args:              cobra.MaximumNArgs(1),
+	ValidArgsFunction: completeTopicTitles,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		store, err := getStorage()
 		if err != nil {
