@@ -73,6 +73,16 @@ recall -h
 | recall history <title> | Show review history for a topic                 |
 | recall remove <title>  | Remove a topic from tracking                    |
 
+## Shell Completion
+
+Enable zsh tab-completion for topic titles (matches wiki filenames):
+
+```bash
+recall completion zsh > "${fpath[1]}/_recall"
+```
+
+Restart your shell or run `autoload -Uz compinit && compinit` afterward.
+
 ## Topic Format
 
 Mark any markdown file for review using YAML frontmatter:
