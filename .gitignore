@@ -1,12 +1,1 @@
-# Binary
-/recall
-
-.idea/
-.vscode/
-*.swp
-*.swo
-
-.DS_Store
-
-coverage.out
-
+/bin/

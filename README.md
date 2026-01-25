@@ -173,6 +173,7 @@ recall due
 | `recall due` | Daily - see what needs attention |
 | `recall read "Topic"` | First time reading a topic |
 | `recall open "Topic"` | Open the first link in a topic |
+| `recall note "Topic"` | Print the notes for a topic |
 | `recall review "Topic"` | For topics due for review |
 
 ## Data Storage
