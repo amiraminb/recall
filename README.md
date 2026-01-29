@@ -67,6 +67,7 @@ recall -h
 | recall due --week      | Show topics due this week                       |
 | recall due --tag <tag> | Filter by tag                                   |
 | recall read <title>    | Mark first read and schedule first review       |
+| recall edit <title>    | Edit a topic in your editor                     |
 | recall open <title>    | Open the first markdown link in a topic         |
 | recall review <title>  | Review a topic and rate recall                  |
 | recall tags            | List all tags with counts                       |
