@@ -14,14 +14,14 @@ var readCmd = &cobra.Command{
 	Long: `Record your first reading of a topic and schedule the first review.
 
 Use this after you've read and understood a topic for the first time.
-You'll be asked how well you understood it, which determines when
-your first review will be scheduled.
+You'll be asked how well you understood it, and FSRS will schedule
+your first review.
 
 Understanding levels:
-  1 - Didn't understand, review tomorrow
-  2 - Partially understood, review in 2 days
-  3 - Understood well, review in 4 days
-  4 - Mastered it, review in 7 days
+  1 - Didn't understand
+  2 - Partially understood
+  3 - Understood well
+  4 - Mastered it
 
 Example:
   recall read "Docker Networking"`,
@@ -46,10 +46,10 @@ Example:
 
 		fmt.Printf("First read: %s\n\n", topic.Title)
 		fmt.Println("How well did you understand this topic?")
-		fmt.Println("  1) Didn't understand - review tomorrow")
-		fmt.Println("  2) Partially understood - review in 2 days")
-		fmt.Println("  3) Understood well - review in 4 days")
-		fmt.Println("  4) Mastered it - review in 7 days")
+		fmt.Println("  1) Didn't understand")
+		fmt.Println("  2) Partially understood")
+		fmt.Println("  3) Understood well")
+		fmt.Println("  4) Mastered it")
 		fmt.Print("\nUnderstanding [1-4]: ")
 
 		var input int
@@ -59,21 +59,16 @@ Example:
 			return fmt.Errorf("invalid input: %d", input)
 		}
 
-		// Map understanding to days until first review
-		daysMap := map[int]int{1: 1, 2: 2, 3: 4, 4: 7}
-		days := daysMap[input]
-
 		// Initialize card using FSRS on first read
 		now := time.Now()
 		scheduler := fsrs.NewScheduler()
 		topic.Card = scheduler.Review(fsrs.NewCard(), fsrs.Rating(input), now)
-		topic.Card.Due = now.AddDate(0, 0, days)
 
 		if err := store.UpdateTopic(topic); err != nil {
 			return err
 		}
 
-		// Log as first read (using Good rating as placeholder)
+		// Log first-read self rating for history.
 		if err := store.AddReview(topic.ID, fsrs.Rating(input)); err != nil {
 			return err
 		}

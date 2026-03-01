@@ -35,31 +35,31 @@ type Card struct {
 
 // Parameters holds FSRS algorithm parameters
 type Parameters struct {
-	RequestRetention float64   // Target retention rate (default 0.9)
-	MaximumInterval  int       // Maximum days between reviews (default 365)
+	RequestRetention float64   // Target retention rate (default 0.88)
+	MaximumInterval  int       // Maximum days between reviews (default 1825)
 	W                []float64 // Model weights
 }
 
 // DefaultParameters returns the default FSRS-5 parameters
 func DefaultParameters() Parameters {
 	return Parameters{
-		RequestRetention: 0.9,
-		MaximumInterval:  365,
+		RequestRetention: 0.88,
+		MaximumInterval:  1825,
 		W: []float64{
 			0.4072, 1.1829, 3.1262, 15.4722, // Initial stability for each rating
-			7.2102, // Difficulty base
-			0.5316, // Difficulty multiplier
-			1.0651, // Stability after failure
-			0.0234, // Stability short-term
-			1.616,  // Stability multiplier (success)
-			0.1544, // Stability multiplier (failure)
-			1.0824, // Difficulty-stability interaction
-			1.9813, // Hard penalty
-			0.0953, // Easy bonus
-			0.2975, // Difficulty floor
-			2.2261, // Difficulty ceiling
-			0.2553, // Stability recovery
-			0.6368, // Stability decay
+			7.2102, // Initial difficulty base
+			0.5316, // Initial difficulty slope
+			1.0651, // Difficulty delta after rating
+			0.0234, // Difficulty mean reversion
+			1.616,  // Recall stability growth base
+			0.1544, // Stability damping exponent
+			1.0824, // Recall retrievability sensitivity
+			1.9813, // Forget stability base
+			0.0953, // Forget difficulty exponent
+			0.2975, // Forget stability exponent
+			2.2261, // Forget retrievability sensitivity
+			0.2553, // Hard penalty
+			0.6368, // Easy bonus
 		},
 	}
 }

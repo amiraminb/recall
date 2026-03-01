@@ -116,6 +116,11 @@ Recall uses [FSRS](https://github.com/open-spaced-repetition/fsrs4anki) (Free Sp
 | 3 - Good  | Recalled with effort | Normal interval  |
 | 4 - Easy  | Effortless recall    | Longer interval  |
 
+Default scheduling settings:
+
+- Target retention: `0.88` (slightly fewer reviews than 0.90)
+- Maximum interval: `1825` days (5 years)
+
 ## Workflow
 
 ### When you learn something new
@@ -144,7 +149,7 @@ recall scan
 ```bash
 recall read "Docker Networking"
 ```
-Rate your understanding (1-4) to schedule your first review.
+Rate your understanding (1-4). FSRS schedules the first review interval dynamically based on that rating.
 
 ### Daily routine
 
@@ -162,7 +167,7 @@ recall due
    - Rate how well you remembered (1-4)
 
 3. **FSRS schedules next review:**
-   - Good recall → longer interval (e.g., 3 days → 7 days → 14 days)
+   - Good recall → longer interval growth over time (actual day counts vary by your review history)
    - Poor recall → shorter interval (reset or reduced)
 
 ### Summary
