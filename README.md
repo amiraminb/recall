@@ -119,7 +119,7 @@ Recall uses [FSRS](https://github.com/open-spaced-repetition/fsrs4anki) (Free Sp
 Default scheduling settings:
 
 - Target retention: `0.88` (slightly fewer reviews than 0.90)
-- Maximum interval: `1825` days (5 years)
+- Maximum interval: `365` days (1 year)
 
 ## Workflow
 

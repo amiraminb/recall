@@ -36,7 +36,7 @@ type Card struct {
 // Parameters holds FSRS algorithm parameters
 type Parameters struct {
 	RequestRetention float64   // Target retention rate (default 0.88)
-	MaximumInterval  int       // Maximum days between reviews (default 1825)
+	MaximumInterval  int       // Maximum days between reviews (default 365)
 	W                []float64 // Model weights
 }
 
@@ -44,7 +44,7 @@ type Parameters struct {
 func DefaultParameters() Parameters {
 	return Parameters{
 		RequestRetention: 0.88,
-		MaximumInterval:  1825,
+		MaximumInterval:  365,
 		W: []float64{
 			0.4072, 1.1829, 3.1262, 15.4722, // Initial stability for each rating
 			7.2102, // Initial difficulty base
