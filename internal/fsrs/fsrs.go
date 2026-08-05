@@ -5,12 +5,6 @@ import (
 	"time"
 )
 
-const (
-	// DECAY/FACTOR are the standard FSRS forgetting-curve constants.
-	decay  = -0.5
-	factor = 19.0 / 81.0
-)
-
 // FSRS is the main scheduler.
 type FSRS struct {
 	Params Parameters
@@ -21,6 +15,10 @@ func NewScheduler() *FSRS {
 }
 
 func (f *FSRS) Review(card Card, rating Rating, now time.Time) Card {
+	if !rating.Valid() {
+		return card
+	}
+
 	elapsedDays := f.elapsedDays(card, now)
 	retrievability := f.retrievability(card.Stability, elapsedDays)
 
@@ -76,14 +74,15 @@ func (f *FSRS) initStability(rating Rating) float64 {
 	return f.Params.W[rating-1]
 }
 
+// Linear damping shrinks the delta near d=10 so hard cards cannot pin themselves there.
 func (f *FSRS) nextDifficulty(d float64, rating Rating) float64 {
 	w := f.Params.W
 
-	// Difficulty update and mean reversion (FSRS-5).
-	d = d - w[6]*(float64(rating)-3)
-	d = f.meanReversion(w[4], d)
-	d = clamp(d, 1, 10)
-	return d
+	deltaD := -w[6] * (float64(rating) - 3)
+	damped := deltaD * (10 - d) / 9
+	d = f.meanReversion(f.initDifficulty(Easy), d+damped)
+
+	return clamp(d, 1, 10)
 }
 
 func (f *FSRS) nextRecallStability(card Card, rating Rating, retrievability float64) float64 {
@@ -136,7 +135,9 @@ func (f *FSRS) nextInterval(stability float64) int {
 		return 1
 	}
 
-	interval := stability / factor * (math.Pow(f.Params.RequestRetention, 1/decay) - 1)
+	decay := f.Params.Decay
+	interval := stability / curveFactor(decay) *
+		(math.Pow(f.Params.RequestRetention, 1/decay) - 1)
 	days := int(math.Round(interval))
 	days = min(max(days, 1), f.Params.MaximumInterval)
 
@@ -161,14 +162,13 @@ func (f *FSRS) elapsedDays(card Card, now time.Time) float64 {
 	return days
 }
 
+// Power law, not exponential: nextInterval inverts this exact curve.
 func (f *FSRS) retrievability(stability, elapsedDays float64) float64 {
-	if stability <= 0 {
-		return 1
-	}
-	if elapsedDays <= 0 {
+	if stability <= 0 || elapsedDays <= 0 {
 		return 1
 	}
 
-	r := math.Exp(math.Log(0.9) * elapsedDays / stability)
+	decay := f.Params.Decay
+	r := math.Pow(1+curveFactor(decay)*elapsedDays/stability, decay)
 	return clamp(r, 0, 1)
 }

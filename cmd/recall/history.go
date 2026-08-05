@@ -6,13 +6,29 @@ import (
 	"strings"
 
 	"github.com/amiraminb/recall/internal/fsrs"
+	"github.com/amiraminb/recall/internal/storage"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
 
+var understandingNames = map[fsrs.Rating]string{
+	fsrs.Again: "didn't understand",
+	fsrs.Hard:  "partially understood",
+	fsrs.Good:  "understood well",
+	fsrs.Easy:  "mastered",
+}
+
+var ratingNames = map[fsrs.Rating]string{
+	fsrs.Again: "Again",
+	fsrs.Hard:  "Hard",
+	fsrs.Good:  "Good",
+	fsrs.Easy:  "Easy",
+}
+
 var historyCmd = &cobra.Command{
-	Use:   "history [topic-title]",
-	Short: "Show reading and review history",
+	GroupID: "managing",
+	Use:     "history [topic-title]",
+	Short:   "Show what you studied and how you rated it",
 	Long: `Display history for all topics or a specific topic.
 
 Without arguments, shows all topics with their read status and first read date.
@@ -62,9 +78,9 @@ Examples:
 
 		// With args: show history for specific topic
 		title := args[0]
-		topic := store.GetTopicByTitle(title)
-		if topic == nil {
-			return fmt.Errorf("topic not found: %s", title)
+		topic, err := resolveTopic(store, title)
+		if err != nil {
+			return err
 		}
 
 		history := store.GetReviewHistory(topic.ID)
@@ -81,23 +97,11 @@ Examples:
 		var rows [][]any
 		for i, r := range history {
 			date := r.ReviewedAt.Format("Jan 2, 2006")
-			if i == 0 {
-				understandingNames := map[fsrs.Rating]string{
-					1: "didn't understand",
-					2: "partially understood",
-					3: "understood well",
-					4: "mastered",
-				}
+			if r.EffectiveKind(i == 0) == storage.KindFirstRead {
 				rows = append(rows, []any{date, "First read", understandingNames[r.Rating]})
-			} else {
-				ratingNames := map[fsrs.Rating]string{
-					fsrs.Again: "Again",
-					fsrs.Hard:  "Hard",
-					fsrs.Good:  "Good",
-					fsrs.Easy:  "Easy",
-				}
-				rows = append(rows, []any{date, "Review", ratingNames[r.Rating]})
+				continue
 			}
+			rows = append(rows, []any{date, "Review", ratingNames[r.Rating]})
 		}
 
 		table.Bulk(rows)

@@ -59,20 +59,39 @@ recall review "Kubernetes Architecture"
 recall -h
 ```
 
-| Command                | Description                                     |
-|------------------------|-------------------------------------------------|
-| recall init <path>     | Initialize with wiki path                       |
-| recall scan            | Scan wiki for review topics                     |
-| recall due             | Show status and topics due                      |
-| recall due --week      | Show topics due this week                       |
-| recall due --tag <tag> | Filter by tag                                   |
-| recall read <title>    | Mark first read and schedule first review       |
-| recall edit <title>    | Edit a topic in your editor                     |
-| recall open <title>    | Open the first markdown link in a topic         |
-| recall review <title>  | Review a topic and rate recall                  |
-| recall tags            | List all tags with counts                       |
-| recall history <title> | Show review history for a topic                 |
-| recall remove <title>  | Remove a topic from tracking                    |
+**Setup**
+
+| Command                | Description                                   |
+|------------------------|-----------------------------------------------|
+| recall init <path>     | Point recall at your wiki directory           |
+| recall scan            | Pick up notes newly flagged with review: true |
+
+**Reviewing**
+
+| Command                | Description                                   |
+|------------------------|-----------------------------------------------|
+| recall due             | List what needs revisiting, most overdue first|
+| recall due --week      | Show topics due this week                     |
+| recall due --tag <tag> | Filter by tag                                 |
+| recall read <title>    | Log a first study session, schedule review 1  |
+| recall review <title>  | Rate your recall and set the next review date |
+
+**Working with a topic**
+
+| Command                | Description                                   |
+|------------------------|-----------------------------------------------|
+| recall note <title>    | Print a topic's notes so you can reread them  |
+| recall edit <title>    | Open a topic in $EDITOR to update your notes  |
+| recall open <title>    | Open a topic's first link in your browser     |
+
+**Managing what is tracked**
+
+| Command                | Description                                   |
+|------------------------|-----------------------------------------------|
+| recall history         | Show what you studied and how you rated it    |
+| recall history <title> | Show full review history for one topic        |
+| recall tags            | List tags and how many topics use each        |
+| recall remove <title>  | Stop tracking a topic (your note is untouched)|
 
 ## Shell Completion
 
@@ -118,8 +137,13 @@ Recall uses [FSRS](https://github.com/open-spaced-repetition/fsrs4anki) (Free Sp
 
 Default scheduling settings:
 
-- Target retention: `0.88` (slightly fewer reviews than 0.90)
+- Target retention: `0.9`
 - Maximum interval: `365` days (1 year)
+
+Reviewing after the due date is accounted for rather than punished. Recalling
+something you had nearly forgotten is stronger evidence of retention than an
+on-time review, so a late success earns a longer next interval. A late lapse
+still pulls the interval back down.
 
 ## Workflow
 

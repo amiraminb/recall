@@ -7,8 +7,9 @@ import (
 )
 
 var removeCmd = &cobra.Command{
-	Use:   "remove <topic-title>",
-	Short: "Remove a topic from tracking",
+	GroupID: "managing",
+	Use:     "remove <topic-title>",
+	Short:   "Stop tracking a topic (your note is untouched)",
 	Long: `Stop tracking a topic and remove it from your review schedule.
 
 Use this to clean up orphaned topics (files that were renamed or deleted)
@@ -28,9 +29,9 @@ Example:
 		}
 
 		title := args[0]
-		topic := store.GetTopicByTitle(title)
-		if topic == nil {
-			return fmt.Errorf("topic not found: %s", title)
+		topic, err := resolveTopic(store, title)
+		if err != nil {
+			return err
 		}
 
 		if err := store.RemoveTopic(topic.ID); err != nil {

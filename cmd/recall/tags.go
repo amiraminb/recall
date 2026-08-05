@@ -7,8 +7,9 @@ import (
 )
 
 var tagsCmd = &cobra.Command{
-	Use:   "tags",
-	Short: "List all tags with topic counts",
+	GroupID: "managing",
+	Use:     "tags",
+	Short:   "List tags and how many topics use each",
 	Long: `Show all tags used across your topics and how many topics use each tag.
 
 Useful for seeing how your knowledge is organized and finding topics

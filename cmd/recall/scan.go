@@ -11,8 +11,9 @@ import (
 )
 
 var scanCmd = &cobra.Command{
-	Use:   "scan",
-	Short: "Scan wiki for topics to review",
+	GroupID: "setup",
+	Use:     "scan",
+	Short:   "Pick up notes newly flagged with review: true",
 	Long: `Scan your wiki directory for files marked with 'review: true' in frontmatter.
 
 This command:
@@ -37,38 +38,45 @@ Run this after adding new notes or modifying tags.`,
 			return err
 		}
 
-		// Track which existing topics were found
-		foundTitles := make(map[string]bool)
+		foundFiles := make(map[string]bool)
 
 		added := 0
 		updated := 0
 		for _, t := range topics {
-			relPath, _ := filepath.Rel(wikiPath, t.File)
-			foundTitles[t.Title] = true
+			rel, err := filepath.Rel(wikiPath, t.File)
+			if err != nil {
+				return err
+			}
+			relPath := filepath.ToSlash(rel)
+			foundFiles[relPath] = true
 
-			existing := store.GetTopicByTitle(t.Title)
+			existing := store.GetTopicByFile(relPath)
 			if existing == nil {
-				// New topic
-				store.AddTopic(t.Title, relPath, t.Tags)
+				if _, err := store.AddTopic(t.Title, relPath, t.Tags); err != nil {
+					return err
+				}
 				added++
 				fmt.Printf("  + %s [%s]\n", t.Title, strings.Join(t.Tags, ", "))
-			} else {
-				// Check if tags changed
-				if !slices.Equal(existing.Tags, t.Tags) {
-					existing.Tags = t.Tags
-					store.UpdateTopic(existing)
-					updated++
-					fmt.Printf("  ~ %s [%s]\n", t.Title, strings.Join(t.Tags, ", "))
-				}
+				continue
 			}
+
+			if existing.Title == t.Title && slices.Equal(existing.Tags, t.Tags) {
+				continue
+			}
+
+			existing.Title = t.Title
+			existing.Tags = t.Tags
+			if err := store.UpdateTopic(existing); err != nil {
+				return err
+			}
+			updated++
+			fmt.Printf("  ~ %s [%s]\n", t.Title, strings.Join(t.Tags, ", "))
 		}
 
-		// Detect orphans
-		existingTopics := store.GetAllTopics()
 		var orphans []string
-		for _, t := range existingTopics {
-			if !foundTitles[t.Title] {
-				orphans = append(orphans, t.Title)
+		for _, t := range store.GetAllTopics() {
+			if !foundFiles[t.File] {
+				orphans = append(orphans, fmt.Sprintf("%s (%s)", t.Title, t.File))
 			}
 		}
 
@@ -76,8 +84,8 @@ Run this after adding new notes or modifying tags.`,
 
 		if len(orphans) > 0 {
 			fmt.Printf("\nOrphaned topics (%d):\n", len(orphans))
-			for _, title := range orphans {
-				fmt.Printf("  ? %s\n", title)
+			for _, orphan := range orphans {
+				fmt.Printf("  ? %s\n", orphan)
 			}
 			fmt.Println("\nUse 'recall remove <title>' to clean up.")
 		}

@@ -10,8 +10,9 @@ import (
 )
 
 var noteCmd = &cobra.Command{
-	Use:   "note <topic-title>",
-	Short: "Show the notes for a topic",
+	GroupID: "notes",
+	Use:     "note <topic-title>",
+	Short:   "Print a topic's notes so you can reread them",
 	Long: `Print the notes content from a topic file.
 
 Example:
@@ -25,12 +26,9 @@ Example:
 		}
 
 		title := args[0]
-		filePath, err := findTopicFile(wikiPath, title)
+		filePath, err := resolveTopicPath(wikiPath, title)
 		if err != nil {
 			return err
-		}
-		if filePath == "" {
-			return fmt.Errorf("topic not found: %s", title)
 		}
 
 		notes, err := readNotes(filePath)
