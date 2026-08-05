@@ -17,8 +17,9 @@ import (
 var markdownLinkRegex = regexp.MustCompile(`\[[^\]]+\]\(([^)]+)\)`)
 
 var openCmd = &cobra.Command{
-	Use:   "open <topic-title>",
-	Short: "Open the first link in a topic",
+	GroupID: "notes",
+	Use:     "open <topic-title>",
+	Short:   "Open a topic's first link in your browser",
 	Long: `Open the first markdown link in a topic file using your default browser.
 
 Example:

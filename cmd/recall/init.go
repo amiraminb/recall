@@ -9,8 +9,9 @@ import (
 )
 
 var initCmd = &cobra.Command{
-	Use:   "init <wiki-path>",
-	Short: "Initialize recall with your wiki path",
+	GroupID: "setup",
+	Use:     "init <wiki-path>",
+	Short:   "Point recall at your wiki directory",
 	Long: `Set up recall by specifying your wiki directory.
 
 This creates a config file at ~/.config/recall/config.json. Review data is

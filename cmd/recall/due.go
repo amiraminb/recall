@@ -15,8 +15,9 @@ import (
 )
 
 var dueCmd = &cobra.Command{
-	Use:   "due",
-	Short: "Show status and topics due for review",
+	GroupID: "reviewing",
+	Use:     "due",
+	Short:   "List what needs revisiting, most overdue first",
 	Long: `Display your review status and list topics that need reviewing.
 
 Shows a summary of total topics, how many are due today, and due this week.

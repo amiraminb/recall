@@ -10,8 +10,9 @@ import (
 )
 
 var editCmd = &cobra.Command{
-	Use:   "edit <topic-title>",
-	Short: "Edit a topic in your editor",
+	GroupID: "notes",
+	Use:     "edit <topic-title>",
+	Short:   "Open a topic in $EDITOR to update your notes",
 	Long: `Open a topic file in your editor so you can update your notes.
 
 Example:

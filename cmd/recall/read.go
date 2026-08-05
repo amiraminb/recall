@@ -9,8 +9,9 @@ import (
 )
 
 var readCmd = &cobra.Command{
-	Use:   "read <topic-title>",
-	Short: "Mark a topic as read for the first time",
+	GroupID: "reviewing",
+	Use:     "read <topic-title>",
+	Short:   "Log a first study session and schedule review 1",
 	Long: `Record your first reading of a topic and schedule the first review.
 
 Use this after you've read and understood a topic for the first time.

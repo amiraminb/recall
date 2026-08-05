@@ -10,8 +10,9 @@ import (
 )
 
 var noteCmd = &cobra.Command{
-	Use:   "note <topic-title>",
-	Short: "Show the notes for a topic",
+	GroupID: "notes",
+	Use:     "note <topic-title>",
+	Short:   "Print a topic's notes so you can reread them",
 	Long: `Print the notes content from a topic file.
 
 Example:

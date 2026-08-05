@@ -11,8 +11,9 @@ import (
 )
 
 var scanCmd = &cobra.Command{
-	Use:   "scan",
-	Short: "Scan wiki for topics to review",
+	GroupID: "setup",
+	Use:     "scan",
+	Short:   "Pick up notes newly flagged with review: true",
 	Long: `Scan your wiki directory for files marked with 'review: true' in frontmatter.
 
 This command:

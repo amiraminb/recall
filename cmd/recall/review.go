@@ -9,8 +9,9 @@ import (
 )
 
 var reviewCmd = &cobra.Command{
-	Use:   "review <topic-title>",
-	Short: "Review a topic and rate your recall",
+	GroupID: "reviewing",
+	Use:     "review <topic-title>",
+	Short:   "Rate your recall and set the next review date",
 	Long: `Mark a topic as reviewed and rate how well you remembered it.
 
 After reading your notes, use this command to log the review. You'll be asked

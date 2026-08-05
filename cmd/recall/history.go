@@ -26,8 +26,9 @@ var ratingNames = map[fsrs.Rating]string{
 }
 
 var historyCmd = &cobra.Command{
-	Use:   "history [topic-title]",
-	Short: "Show reading and review history",
+	GroupID: "managing",
+	Use:     "history [topic-title]",
+	Short:   "Show what you studied and how you rated it",
 	Long: `Display history for all topics or a specific topic.
 
 Without arguments, shows all topics with their read status and first read date.
