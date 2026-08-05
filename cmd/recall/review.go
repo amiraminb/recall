@@ -34,12 +34,11 @@ Example:
 		}
 
 		title := args[0]
-		topic := store.GetTopicByTitle(title)
-		if topic == nil {
-			return fmt.Errorf("topic not found: %s", title)
+		topic, err := resolveTopic(store, title)
+		if err != nil {
+			return err
 		}
 
-		// Check if topic hasn't been read yet
 		if topic.Card.State == fsrs.New {
 			return fmt.Errorf("topic not yet read, use 'recall read \"%s\"' first", title)
 		}
@@ -52,14 +51,11 @@ Example:
 		fmt.Println("  4) Easy  - Recalled effortlessly")
 		fmt.Print("\nRating [1-4]: ")
 
-		var input int
-		fmt.Scanln(&input)
-
-		if input < 1 || input > 4 {
-			return fmt.Errorf("invalid rating: %d", input)
+		rating, err := promptRating(cmd.InOrStdin())
+		if err != nil {
+			return err
 		}
 
-		rating := fsrs.Rating(input)
 		scheduler := fsrs.NewScheduler()
 		topic.Card = scheduler.Review(topic.Card, rating, time.Now())
 

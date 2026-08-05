@@ -12,6 +12,10 @@ const (
 	Easy  Rating = 4 // Recalled effortlessly
 )
 
+func (r Rating) Valid() bool {
+	return r >= Again && r <= Easy
+}
+
 // State represents the learning state of a card
 type State int
 
@@ -35,16 +39,18 @@ type Card struct {
 
 // Parameters holds FSRS algorithm parameters
 type Parameters struct {
-	RequestRetention float64   // Target retention rate (default 0.88)
-	MaximumInterval  int       // Maximum days between reviews (default 365)
-	W                []float64 // Model weights
+	RequestRetention float64
+	MaximumInterval  int
+	Decay            float64
+	W                []float64
 }
 
 // DefaultParameters returns the default FSRS-5 parameters
 func DefaultParameters() Parameters {
 	return Parameters{
-		RequestRetention: 0.88,
+		RequestRetention: 0.9,
 		MaximumInterval:  365,
+		Decay:            -0.5,
 		W: []float64{
 			0.4072, 1.1829, 3.1262, 15.4722, // Initial stability for each rating
 			7.2102, // Initial difficulty base
@@ -57,9 +63,11 @@ func DefaultParameters() Parameters {
 			1.9813, // Forget stability base
 			0.0953, // Forget difficulty exponent
 			0.2975, // Forget stability exponent
-			2.2261, // Forget retrievability sensitivity
-			0.2553, // Hard penalty
-			0.6368, // Easy bonus
+			2.2042, // Forget retrievability sensitivity
+			0.2407, // Hard penalty
+			2.9466, // Easy bonus
+			0.5034, // Short-term stability, unused
+			0.6567, // Short-term stability, unused
 		},
 	}
 }

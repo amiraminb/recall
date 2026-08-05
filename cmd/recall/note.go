@@ -25,12 +25,9 @@ Example:
 		}
 
 		title := args[0]
-		filePath, err := findTopicFile(wikiPath, title)
+		filePath, err := resolveTopicPath(wikiPath, title)
 		if err != nil {
 			return err
-		}
-		if filePath == "" {
-			return fmt.Errorf("topic not found: %s", title)
 		}
 
 		notes, err := readNotes(filePath)

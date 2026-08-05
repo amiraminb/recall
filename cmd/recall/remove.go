@@ -28,9 +28,9 @@ Example:
 		}
 
 		title := args[0]
-		topic := store.GetTopicByTitle(title)
-		if topic == nil {
-			return fmt.Errorf("topic not found: %s", title)
+		topic, err := resolveTopic(store, title)
+		if err != nil {
+			return err
 		}
 
 		if err := store.RemoveTopic(topic.ID); err != nil {

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/amiraminb/recall/internal/fsrs"
@@ -60,9 +61,9 @@ func (s *Storage) Save() error {
 func (s *Storage) AddTopic(title, file string, tags []string) (*Topic, error) {
 	id := generateID(file, title)
 
-	for _, t := range s.data.Topics {
-		if t.ID == id {
-			return &t, nil // Already exists
+	for i := range s.data.Topics {
+		if s.data.Topics[i].ID == id {
+			return &s.data.Topics[i], nil
 		}
 	}
 
@@ -95,6 +96,27 @@ func (s *Storage) GetTopicByTitle(title string) *Topic {
 		}
 	}
 	return nil
+}
+
+func (s *Storage) GetTopicByFile(file string) *Topic {
+	for i := range s.data.Topics {
+		if s.data.Topics[i].File == file {
+			return &s.data.Topics[i]
+		}
+	}
+	return nil
+}
+
+// FindTopicsByTitle returns every topic sharing a title so callers can report an
+// ambiguous match instead of silently acting on the wrong note.
+func (s *Storage) FindTopicsByTitle(title string) []*Topic {
+	var matches []*Topic
+	for i := range s.data.Topics {
+		if strings.EqualFold(s.data.Topics[i].Title, title) {
+			matches = append(matches, &s.data.Topics[i])
+		}
+	}
+	return matches
 }
 
 func (s *Storage) GetAllTopics() []Topic {
@@ -132,12 +154,20 @@ func (s *Storage) UpdateTopic(topic *Topic) error {
 }
 
 func (s *Storage) AddReview(topicID string, rating fsrs.Rating) error {
-	review := ReviewLog{
+	return s.addLog(topicID, rating, KindReview)
+}
+
+func (s *Storage) AddFirstRead(topicID string, rating fsrs.Rating) error {
+	return s.addLog(topicID, rating, KindFirstRead)
+}
+
+func (s *Storage) addLog(topicID string, rating fsrs.Rating, kind LogKind) error {
+	s.data.Reviews = append(s.data.Reviews, ReviewLog{
 		TopicID:    topicID,
 		ReviewedAt: time.Now(),
 		Rating:     rating,
-	}
-	s.data.Reviews = append(s.data.Reviews, review)
+		Kind:       kind,
+	})
 	return s.Save()
 }
 

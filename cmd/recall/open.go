@@ -32,12 +32,9 @@ Example:
 		}
 
 		title := args[0]
-		filePath, err := findTopicFile(wikiPath, title)
+		filePath, err := resolveTopicPath(wikiPath, title)
 		if err != nil {
 			return err
-		}
-		if filePath == "" {
-			return fmt.Errorf("topic not found: %s", title)
 		}
 
 		link, err := findFirstLink(filePath)
@@ -95,7 +92,8 @@ func findTopicFile(wikiPath, title string) (string, error) {
 		return "", nil
 	}
 	if len(matches) > 1 {
-		return "", fmt.Errorf("multiple files matched title: %s", searchName)
+		return "", fmt.Errorf("%q matches %d files: %s\nRun 'recall scan' to track them, or rename one",
+			searchName, len(matches), strings.Join(matches, ", "))
 	}
 
 	return matches[0], nil

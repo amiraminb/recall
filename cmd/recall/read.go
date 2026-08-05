@@ -34,12 +34,11 @@ Example:
 		}
 
 		title := args[0]
-		topic := store.GetTopicByTitle(title)
-		if topic == nil {
-			return fmt.Errorf("topic not found: %s", title)
+		topic, err := resolveTopic(store, title)
+		if err != nil {
+			return err
 		}
 
-		// Check if already read (not New state)
 		if topic.Card.State != fsrs.New {
 			return fmt.Errorf("topic already read, use 'recall review' instead")
 		}
@@ -52,24 +51,19 @@ Example:
 		fmt.Println("  4) Mastered it")
 		fmt.Print("\nUnderstanding [1-4]: ")
 
-		var input int
-		fmt.Scanln(&input)
-
-		if input < 1 || input > 4 {
-			return fmt.Errorf("invalid input: %d", input)
+		rating, err := promptRating(cmd.InOrStdin())
+		if err != nil {
+			return err
 		}
 
-		// Initialize card using FSRS on first read
-		now := time.Now()
 		scheduler := fsrs.NewScheduler()
-		topic.Card = scheduler.Review(fsrs.NewCard(), fsrs.Rating(input), now)
+		topic.Card = scheduler.Review(fsrs.NewCard(), rating, time.Now())
 
 		if err := store.UpdateTopic(topic); err != nil {
 			return err
 		}
 
-		// Log first-read self rating for history.
-		if err := store.AddReview(topic.ID, fsrs.Rating(input)); err != nil {
+		if err := store.AddFirstRead(topic.ID, rating); err != nil {
 			return err
 		}
 
