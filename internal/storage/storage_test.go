@@ -46,6 +46,23 @@ func TestSameTitleDifferentFilesStaySeparate(t *testing.T) {
 	}
 }
 
+// Stored paths use forward slashes so the path a user copies from an ambiguity
+// error resolves the same way on any platform.
+func TestGetTopicByFileUsesSlashPaths(t *testing.T) {
+	store := newTestStorage(t)
+
+	if _, err := store.AddTopic("Networking", "aws/vpc/Networking.md", nil); err != nil {
+		t.Fatalf("AddTopic: %v", err)
+	}
+
+	if store.GetTopicByFile("aws/vpc/Networking.md") == nil {
+		t.Error("could not resolve a topic by its stored slash path")
+	}
+	if store.GetTopicByFile("aws/vpc/Missing.md") != nil {
+		t.Error("resolved a path that was never tracked")
+	}
+}
+
 func TestAddTopicIsIdempotent(t *testing.T) {
 	store := newTestStorage(t)
 

@@ -107,13 +107,18 @@ func resolveTopicPath(wikiPath, title string) (string, error) {
 	return path, nil
 }
 
-// Reports ambiguity rather than guessing when two notes share a filename.
-func resolveTopic(store *storage.Storage, title string) (*storage.Topic, error) {
-	matches := store.FindTopicsByTitle(title)
+// Accepts a title or, when several notes share one, the relative file path that
+// the ambiguity error reports.
+func resolveTopic(store *storage.Storage, nameOrPath string) (*storage.Topic, error) {
+	if topic := store.GetTopicByFile(filepath.ToSlash(nameOrPath)); topic != nil {
+		return topic, nil
+	}
+
+	matches := store.FindTopicsByTitle(nameOrPath)
 
 	switch len(matches) {
 	case 0:
-		return nil, fmt.Errorf("%w: %s (run 'recall scan' first)", errTopicNotTracked, title)
+		return nil, fmt.Errorf("%w: %s (run 'recall scan' first)", errTopicNotTracked, nameOrPath)
 	case 1:
 		return matches[0], nil
 	}
@@ -122,8 +127,8 @@ func resolveTopic(store *storage.Storage, title string) (*storage.Topic, error) 
 	for _, m := range matches {
 		files = append(files, m.File)
 	}
-	return nil, fmt.Errorf("%q matches %d tracked notes: %s\nPass the path-unique title or rename one note",
-		title, len(matches), strings.Join(files, ", "))
+	return nil, fmt.Errorf("%q matches %d tracked notes; pass one of these paths instead:\n  %s",
+		nameOrPath, len(matches), strings.Join(files, "\n  "))
 }
 
 func listWikiTitles(wikiPath string) ([]string, error) {

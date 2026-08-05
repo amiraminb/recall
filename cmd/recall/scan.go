@@ -43,10 +43,11 @@ Run this after adding new notes or modifying tags.`,
 		added := 0
 		updated := 0
 		for _, t := range topics {
-			relPath, err := filepath.Rel(wikiPath, t.File)
+			rel, err := filepath.Rel(wikiPath, t.File)
 			if err != nil {
 				return err
 			}
+			relPath := filepath.ToSlash(rel)
 			foundFiles[relPath] = true
 
 			existing := store.GetTopicByFile(relPath)
