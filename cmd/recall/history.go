@@ -5,9 +5,11 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/amiraminb/recall/internal/fsrs"
 	"github.com/amiraminb/recall/internal/storage"
+	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 )
@@ -32,7 +34,7 @@ var historyCmd = &cobra.Command{
 	Short:   "Show what you studied and how you rated it",
 	Long: `Display history for all topics or a specific topic.
 
-Without arguments, shows all topics with their read status and first read date.
+Without arguments, shows all topics with their read status, first read date, and next due date.
 With a topic title, shows the complete review history for that topic.
 
 Examples:
@@ -54,8 +56,9 @@ Examples:
 				return nil
 			}
 
+			now := time.Now()
 			table := tablewriter.NewTable(os.Stdout)
-			table.Header("Topic", "Tags", "Read Date")
+			table.Header("Topic", "Tags", "Read Date", "Due Date")
 
 			var rows [][]any
 			for _, t := range topics {
@@ -69,7 +72,7 @@ Examples:
 					}
 				}
 
-				rows = append(rows, []any{t.Title, tags, readDate})
+				rows = append(rows, []any{t.Title, tags, readDate, colorHistoryDueDate(t.Card.Due, now)})
 			}
 
 			table.Bulk(rows)
@@ -115,6 +118,35 @@ func sortedTags(tags []string) []string {
 	sorted := slices.Clone(tags)
 	slices.Sort(sorted)
 	return sorted
+}
+
+func formatDueDate(due time.Time) string {
+	if due.IsZero() {
+		return "-"
+	}
+	return due.Format("Jan 2, 2006")
+}
+
+func colorHistoryDueDate(due, now time.Time) string {
+	text := formatDueDate(due)
+	if due.IsZero() {
+		return text
+	}
+	return color.New(historyDueColor(due, now)).Sprint(text)
+}
+
+func historyDueColor(due, now time.Time) color.Attribute {
+	date := due.In(now.Location())
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	dueDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, now.Location())
+
+	if dueDay.Before(today) {
+		return color.FgRed
+	}
+	if dueDay.Equal(today) {
+		return color.FgGreen
+	}
+	return color.FgBlue
 }
 
 func init() {
