@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/amiraminb/recall/internal/fsrs"
@@ -58,7 +59,7 @@ Examples:
 
 			var rows [][]any
 			for _, t := range topics {
-				tags := strings.Join(t.Tags, ", ")
+				tags := strings.Join(sortedTags(t.Tags), ", ")
 				readDate := "-"
 
 				if t.Card.State != fsrs.New {
@@ -108,6 +109,12 @@ Examples:
 		table.Render()
 		return nil
 	},
+}
+
+func sortedTags(tags []string) []string {
+	sorted := slices.Clone(tags)
+	slices.Sort(sorted)
+	return sorted
 }
 
 func init() {
