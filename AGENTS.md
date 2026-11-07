@@ -6,10 +6,10 @@
 - No Copilot rules found (`.github/copilot-instructions.md` absent).
 
 ## Quickstart Summary
-- Language: Go (module `github.com/amiraminb/recall`, Go 1.25.3).
+- Language: Go (module `github.com/amiraminb/recall`, Go 1.25.6).
 - CLI entrypoint: `./cmd/recall` (Cobra-based commands).
-- Data persists under `<wiki>/.srs/reviews.json`; config at `~/.config/recall/config.json`.
-- Goal: spaced repetition for markdown wikis flagged with `review: true` in YAML frontmatter.
+- Data persists under `$XDG_DATA_HOME/recall/reviews.json` or `~/.local/share/recall/reviews.json`.
+- Goal: spaced repetition for topics users explicitly add after studying them.
 
 ## Build, Run, Lint, Test
 - Install: `go install github.com/amiraminb/recall/cmd/recall@latest`.
@@ -20,22 +20,21 @@
 - Format: `gofmt -w ./` (or `goimports` if already used).
 - Lint/basic analysis: `go vet ./...`.
 - Test all packages: `go test ./...`.
-- Test a single package: `go test ./internal/parser`.
-- Test a single test: `go test ./internal/parser -run TestName -count=1`.
-- Benchmark (if added): `go test -bench=. ./internal/parser`.
+- Test a single package: `go test ./internal/storage`.
+- Test a single test: `go test ./internal/storage -run TestName -count=1`.
+- Benchmark (if added): `go test -bench=. ./internal/storage`.
 - Prefer focused package-level runs before `./...`.
 
 ## Repository Map
-- `/cmd/recall`: Cobra commands (`init`, `scan`, `due`, `read`, `review`, `tags`, `history`, `remove`).
-- `/internal/config`: config load/save (`~/.config/recall/config.json`).
-- `/internal/parser`: markdown frontmatter scanning for `review: true` topics.
+- `/cmd/recall`: Cobra commands (`add`, `due`, `review`, `list`, `edit`, `open`, `tags`, `history`, `remove`).
+- `/internal/config`: standalone data directory and legacy config loading for migration.
 - `/internal/storage`: JSON-backed topic/review persistence; FSRS integration.
 - `/internal/fsrs`: scheduling logic and rating types (Again/Hard/Good/Easy).
 - `README.md`: usage walkthrough and feature descriptions.
 
 ## Coding Style: General
 - Follow idiomatic Go: short helpers, early returns, clear error paths.
-- Keep functions focused; reuse helpers (`getWikiPath`, `getStorage`).
+- Keep functions focused; reuse helpers (`getStorage`, `resolveTopic`).
 - Prefer pure functions; inject dependencies instead of globals.
 - Avoid one-letter names except conventional loops (`i`, `j`).
 - Keep boolean flags descriptive (`week`, `tag`, `review`).
@@ -55,7 +54,7 @@
 - Storage models live in `internal/storage/models.go`.
 - Keep JSON tags in snake_case.
 - Use `time.Time` for timestamps; store with `ReviewedAt` and `Created` fields.
-- Generate IDs deterministically via `sha256` of file/title (`generateID`).
+- Generate IDs via `generateID`; new topics use creation time/title, while migrated IDs remain stable.
 - FSRS card state managed through `fsrs.Card`; ratings via `fsrs.Rating` enums.
 - Maintain backwards compatibility in stored JSON; default missing fields safely.
 
@@ -64,23 +63,23 @@
 - Use `os.MkdirAll` before writing config or storage files.
 - Use `json.MarshalIndent` with two-space indent for persisted JSON.
 - When reading files, call `defer file.Close()` immediately after `os.Open`.
-- Skip hidden directories when walking user wikis; only process `.md` files.
+- Source references are metadata; do not scan directories or parse user notes.
 - Keep path handling cross-platform via `filepath` utilities.
 
 ## Coding Style: Error Handling
 - Prefer returning errors from `RunE` and helpers; Cobra prints/propagates.
 - Emit user-facing errors to stderr via `fmt.Fprintln(os.Stderr, err)` (see `main.go`).
 - Avoid panics; handle expected missing config (`nil, nil` from `config.Load`).
-- Provide actionable error messages (e.g., prompt to run `recall init <path>`).
+- Provide actionable error messages (e.g., prompt to run `recall add "Topic"`).
 - Wrap context with `fmt.Errorf` when helpful; keep messages concise.
 - Error strings should be lowercase with no trailing punctuation.
 
 ## Coding Style: CLI UX
 - Keep command `Use`, `Short`, `Long` descriptive; include examples in `Long`.
 - Register flags in `init()`; prefer simple types (string/bool) for UX.
-- Print summaries with `fmt.Printf`; align with existing outputs (`+`, `~`, `?`).
+- Print summaries through `cmd.OutOrStdout()` so output can be redirected and tested.
 - Avoid noisy logging; favor concise, user-friendly console output.
-- Never mutate user wiki files directly (only `.srs` data).
+- Never mutate user source materials or legacy wiki data.
 
 ## Coding Style: Collections & Iteration
 - Use `slices.Equal` and `slices.Contains` from stdlib for tag comparisons.
@@ -91,14 +90,14 @@
 ## Coding Style: Time & Scheduling
 - Use `time.Now()` captured once per operation.
 - Derive `today`/`weekEnd` consistently (`time.Date` truncation to day).
-- Express intervals in days via `time.Until(...).Hours() / 24` (see `due`).
+- Use local calendar days for the daily queue and due-date labels.
 - Keep scheduling logic inside FSRS/card helpers when extending behavior.
 
 ## Testing Guidance
 - New tests should mirror package structure; name files `*_test.go`.
-- Use table-driven tests for parser/storage logic.
+- Use table-driven tests for storage and review-session logic.
 - For CLI commands, prefer testing underlying helpers over Cobra wiring.
-- Avoid global state; create temp dirs for wiki paths/storage files.
+- Avoid global state; create temp dirs for storage files and legacy migration fixtures.
 - Use `t.Helper()` in shared test helpers.
 
 ## Documentation & Comments
@@ -108,18 +107,18 @@
 - Add doc comments (`// Name ...`) for exported types/functions.
 
 ## Dependencies & Versions
-- Current deps: Cobra v1.10.2, tablewriter v1.1.2, yaml.v3.
+- Current deps: Cobra v1.10.2, tablewriter v1.1.2, fatih/color v1.15.0.
 - Avoid adding heavy dependencies; prefer stdlib first.
 - If adding a dependency, run `go mod tidy` and justify in PR.
 
 ## Storage & Safety
-- Never write inside the user wiki except the `.srs` directory.
-- Ensure cleanup commands only touch `.srs` data.
-- Backwards-compatible migrations: load JSON, add defaults, then save.
+- Write only to Recall's standalone data directory.
+- Legacy migration reads `~/.config/recall/config.json` and copies `.srs/reviews.json` only when standalone data is absent.
+- Preserve legacy IDs, schedules, and history; never overwrite existing standalone data during migration.
 
 ## Performance Notes
-- Parser uses `bufio.Scanner`; avoid loading entire files into memory.
-- Skip hidden directories to keep scans fast; batch writes only if needed.
+- Use one buffered reader per interactive session so piped input is not lost.
+- Persist each review's schedule and log together before advancing the queue.
 
 ## Contributing Workflow
 - Keep changes minimal and scoped; avoid unrelated refactors.
@@ -127,7 +126,7 @@
 - Provide clear commit/PR messages describing behavior changes and reasoning.
 
 ## Security & Privacy
-- Treat wiki paths as user-sensitive; avoid logging file contents.
+- Treat topics and source references as user-sensitive; avoid logging data by default.
 - Validate inputs where feasible; avoid executing arbitrary user content.
 
 ## Observability
@@ -136,13 +135,14 @@
 
 ## Extending Commands
 - Add new commands as separate files under `cmd/recall`.
-- Reuse shared helpers (`getWikiPath`, `getStorage`).
+- Reuse shared helpers (`getStorage`, `resolveTopic`).
 - Keep flag names short and memorable; document in `Long` with examples.
 
-## Frontmatter & Parsing
-- `review: true` gates inclusion; respect `id` override, else filename, else heading.
-- Preserve tag order when possible; use YAML `tags` array.
-- Heading regex: `^(#{1,6})\s+(.+)$`; maintain when extending parsing.
+## Topics & Review Flow
+- A title is required; source and tags are optional.
+- Adding means the topic has been studied; schedule tomorrow without inventing a recall rating.
+- Encourage recall before checking the source; use FSRS for actual review ratings.
+- Match titles case-insensitively and preserve tag order when possible.
 
 ## Release & Distribution
 - Preferred distribution via `go install ...@latest`.

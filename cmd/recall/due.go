@@ -2,137 +2,87 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"sort"
 	"time"
 
 	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"
-
-	"github.com/amiraminb/recall/internal/fsrs"
-	"github.com/amiraminb/recall/internal/storage"
 	"github.com/spf13/cobra"
 )
 
 var dueCmd = &cobra.Command{
 	GroupID: "reviewing",
 	Use:     "due",
-	Short:   "List what needs revisiting, most overdue first",
-	Long: `Display your review status and list topics that need reviewing.
-
-Shows a summary of total topics, how many are due today, and due this week.
-Then lists the topics you should review, with their due status.
+	Short:   "See what's due, most overdue first",
+	Long: `Show today's review queue, or the next seven days with --week.
 
 Examples:
-  recall due             # Show topics due today
-  recall due --week      # Show topics due this week
-  recall due --tag k8s   # Show only k8s-tagged topics due`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := getStorage()
-		if err != nil {
-			return err
-		}
+  recall
+  recall due --week
+  recall due --tag go`,
+	Args: cobra.NoArgs,
+	RunE: runDue,
+}
 
-		tag, _ := cmd.Flags().GetString("tag")
-		week, _ := cmd.Flags().GetBool("week")
-
-		now := time.Now()
-		today := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, now.Location())
-		weekEnd := today.AddDate(0, 0, 7)
-
-		// Summary
-		allTopics := store.GetAllTopics()
-		dueToday := store.GetDueTopics(today)
-		dueWeek := store.GetDueTopics(weekEnd)
-
-		fmt.Printf("Topics: %d | Due today: %d | Due this week: %d\n\n",
-			len(allTopics), len(dueToday), len(dueWeek))
-
-		// Get topics based on flags
-		until := today
-		if week {
-			until = weekEnd
-		}
-		topics := store.GetDueTopics(until)
-
-		// Filter by tag if specified
-		if tag != "" {
-			var filtered []storage.Topic
-			for _, t := range topics {
-				for _, tg := range t.Tags {
-					if tg == tag {
-						filtered = append(filtered, t)
-						break
-					}
-				}
-			}
-			topics = filtered
-		}
-
-		if len(topics) == 0 {
-			fmt.Println("No topics due for review!")
-			return nil
-		}
-
-		label := "Due today:"
-		if week {
-			label = "Due this week:"
-		}
-		fmt.Println(label)
-
-		table := tablewriter.NewWriter(os.Stdout)
-		table.Header("Title", "Due", "Action")
-
-		type dueRow struct {
-			title string
-			due   string
-			days  int
-			act   string
-		}
-
-		rows := make([]dueRow, 0, len(topics))
-
-		for _, t := range topics {
-			days := int(time.Until(t.Card.Due).Hours() / 24)
-			dueStr := "today"
-			if days < 0 {
-				dueStr = fmt.Sprintf("%d days overdue", -days)
-			} else if days > 0 {
-				dueStr = fmt.Sprintf("in %d days", days)
-			}
-
-			action := color.New(color.FgGreen).Sprint("review")
-			if t.Card.State == fsrs.New {
-				action = color.New(color.FgBlue).Sprint("read")
-			}
-
-			rows = append(rows, dueRow{
-				title: t.Title,
-				due:   colorDue(days, dueStr),
-				days:  days,
-				act:   action,
-			})
-		}
-
-		sort.Slice(rows, func(i, j int) bool {
-			ri, rj := statusRank(rows[i].days), statusRank(rows[j].days)
-			if ri != rj {
-				return ri < rj
-			}
-			if rows[i].days != rows[j].days {
-				return rows[i].days < rows[j].days
-			}
-			return rows[i].title < rows[j].title
-		})
-
-		for _, r := range rows {
-			table.Append(truncateText(r.title, maxTitleWidth), r.due, r.act)
-		}
-
-		table.Render()
-
+func runDue(cmd *cobra.Command, args []string) error {
+	store, err := getStorage()
+	if err != nil {
+		return err
+	}
+	out := cmd.OutOrStdout()
+	if len(store.GetAllTopics()) == 0 {
+		fmt.Fprintln(out, "Add something you've studied to start remembering it:\n\n  recall add \"Docker Networking\"\n\nYour first review will be tomorrow.")
 		return nil
-	},
+	}
+	tag, _ := cmd.Flags().GetString("tag")
+	week, _ := cmd.Flags().GetBool("week")
+	now := time.Now()
+	today := endOfDay(now)
+	weekEnd := endOfDay(now.AddDate(0, 0, 6))
+	allTopics := filterTopics(store.GetAllTopics(), tag)
+	dueToday := filterTopics(store.GetDueTopics(today), tag)
+	dueWeek := filterTopics(store.GetDueTopics(weekEnd), tag)
+	fmt.Fprintf(out, "Topics: %d | Due today: %d | Due next 7 days: %d\n\n", len(allTopics), len(dueToday), len(dueWeek))
+	topics := dueToday
+	if week {
+		topics = dueWeek
+	}
+	if len(topics) == 0 {
+		fmt.Fprintln(out, "All caught up!")
+		if len(allTopics) > 0 {
+			fmt.Fprintf(out, "Next review: %s (%s)\n", allTopics[0].Title, allTopics[0].Card.Due.Format("Jan 2, 2006"))
+		} else if tag != "" {
+			fmt.Fprintf(out, "No topics tagged %q.\n", tag)
+		}
+		return nil
+	}
+	table := tablewriter.NewWriter(out)
+	table.Header("Topic", "Due")
+	for _, topic := range topics {
+		days := calendarDaysUntil(topic.Card.Due, now)
+		due := "today"
+		if days < 0 {
+			due = fmt.Sprintf("%d days overdue", -days)
+		} else if days > 0 {
+			due = fmt.Sprintf("in %d days", days)
+		}
+		table.Append(truncateText(topic.Title, maxTitleWidth), colorDue(days, due))
+	}
+	table.Render()
+	if len(dueToday) > 0 {
+		if tag != "" {
+			fmt.Fprintf(out, "\nStart reviewing: recall review --tag %q\n", tag)
+		} else {
+			fmt.Fprintln(out, "\nStart reviewing: recall review")
+		}
+	}
+	return nil
+}
+
+func calendarDaysUntil(due, now time.Time) int {
+	due = due.In(now.Location())
+	dueDay := time.Date(due.Year(), due.Month(), due.Day(), 0, 0, 0, 0, time.UTC)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	return int(dueDay.Sub(today).Hours() / 24)
 }
 
 func colorDue(days int, text string) string {
@@ -143,16 +93,6 @@ func colorDue(days int, text string) string {
 		return color.New(color.FgMagenta).Sprint(text)
 	}
 	return color.New(color.FgCyan).Sprint(text)
-}
-
-func statusRank(days int) int {
-	if days < 0 {
-		return 0 // overdue
-	}
-	if days == 0 {
-		return 1 // today
-	}
-	return 2 // future
 }
 
 const maxTitleWidth = 48
@@ -169,7 +109,9 @@ func truncateText(text string, max int) string {
 }
 
 func init() {
-	dueCmd.Flags().String("tag", "", "Filter by tag")
-	dueCmd.Flags().Bool("week", false, "Show topics due this week")
+	for _, cmd := range []*cobra.Command{rootCmd, dueCmd} {
+		cmd.Flags().String("tag", "", "Filter by tag")
+		cmd.Flags().Bool("week", false, "Show topics due over the next seven days")
+	}
 	rootCmd.AddCommand(dueCmd)
 }

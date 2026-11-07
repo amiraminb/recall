@@ -9,7 +9,8 @@ import (
 type Topic struct {
 	ID      string    `json:"id"`
 	Title   string    `json:"title"`
-	File    string    `json:"file"`
+	File    string    `json:"file,omitempty"`
+	Source  string    `json:"source,omitempty"`
 	Tags    []string  `json:"tags"`
 	Card    fsrs.Card `json:"card"`
 	Created time.Time `json:"created"`

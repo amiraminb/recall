@@ -1,77 +1,126 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/amiraminb/recall/internal/fsrs"
+	"github.com/amiraminb/recall/internal/storage"
 	"github.com/spf13/cobra"
 )
 
 var reviewCmd = &cobra.Command{
 	GroupID: "reviewing",
-	Use:     "review <topic-title>",
-	Short:   "Rate your recall and set the next review date",
-	Long: `Mark a topic as reviewed and rate how well you remembered it.
+	Use:     "review [topic-title]",
+	Short:   "Work through today's queue or review one topic",
+	Long: `Try explaining each topic from memory before checking your source.
+Then rate how well you recalled it. FSRS schedules the next review.
 
-After reading your notes, use this command to log the review. You'll be asked
-to rate your recall from 1-4. The FSRS algorithm then schedules the next
-review based on your rating.
+Without a title, works through today's topics, most overdue first.
+Each rating is saved immediately. Skip a topic with s or end the session with q.
 
-Ratings:
-  1 (Again) - Forgot completely, reset interval
-  2 (Hard)  - Struggled to recall, shorter interval
-  3 (Good)  - Recalled with some effort, normal interval
-  4 (Easy)  - Instant recall, longer interval
+Ratings: 1 Again (forgot), 2 Hard, 3 Good, 4 Easy.
 
-Example:
-  recall review "Docker Networking"`,
-	Args:              cobra.ExactArgs(1),
+Examples:
+  recall review
+  recall review --tag go
+  recall review "Docker Networking"
+  recall review "Docker Networking" --rating 3`,
+	Args:              cobra.MaximumNArgs(1),
 	ValidArgsFunction: completeTopicTitles,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		rating, _ := cmd.Flags().GetInt("rating")
+		if cmd.Flags().Changed("rating") && (len(args) != 1 || !fsrs.Rating(rating).Valid()) {
+			return fmt.Errorf("use --rating 1-4 with a single topic title")
+		}
+		tag, _ := cmd.Flags().GetString("tag")
+		if len(args) == 1 && cmd.Flags().Changed("tag") {
+			return fmt.Errorf("use --tag with the review queue, or pass a single topic title")
+		}
 		store, err := getStorage()
 		if err != nil {
 			return err
 		}
-
-		title := args[0]
-		topic, err := resolveTopic(store, title)
-		if err != nil {
-			return err
+		var topics []storage.Topic
+		if len(args) == 1 {
+			topic, err := resolveTopic(store, args[0])
+			if err != nil {
+				return err
+			}
+			if rating != 0 {
+				if err := store.RecordReview(topic.ID, fsrs.Rating(rating), time.Now()); err != nil {
+					return err
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "Reviewed: %s\nNext review: %s\n", topic.Title, topic.Card.Due.Format("Jan 2, 2006"))
+				return nil
+			}
+			topics = []storage.Topic{*topic}
+		} else {
+			topics = filterTopics(store.GetDueTopics(endOfDay(time.Now())), tag)
 		}
-
-		if topic.Card.State == fsrs.New {
-			return fmt.Errorf("topic not yet read, use 'recall read \"%s\"' first", title)
+		if len(topics) == 0 {
+			fmt.Fprintln(cmd.OutOrStdout(), "No topics due for review. Run 'recall' for your schedule.")
+			return nil
 		}
-
-		fmt.Printf("Reviewing: %s\n\n", topic.Title)
-		fmt.Println("How well did you recall this topic?")
-		fmt.Println("  1) Again - Forgot completely")
-		fmt.Println("  2) Hard  - Difficult to recall")
-		fmt.Println("  3) Good  - Recalled with effort")
-		fmt.Println("  4) Easy  - Recalled effortlessly")
-		fmt.Print("\nRating [1-4]: ")
-
-		rating, err := promptRating(cmd.InOrStdin())
-		if err != nil {
-			return err
-		}
-
-		scheduler := fsrs.NewScheduler()
-		topic.Card = scheduler.Review(topic.Card, rating, time.Now())
-
-		if err := store.UpdateTopic(topic); err != nil {
-			return err
-		}
-		if err := store.AddReview(topic.ID, rating); err != nil {
-			return err
-		}
-
-		fmt.Printf("\nReviewed! Next review: %s\n", topic.Card.Due.Format("Jan 2, 2006"))
-		return nil
+		return runReviewSession(cmd.InOrStdin(), cmd.OutOrStdout(), store, topics)
 	},
 }
 
+func runReviewSession(in io.Reader, out io.Writer, store *storage.Storage, topics []storage.Topic) error {
+	scanner := bufio.NewScanner(in)
+	reviewed, skipped := 0, 0
+	finish := func() {
+		fmt.Fprintf(out, "\nSession: %d reviewed, %d skipped, %d remaining.\n", reviewed, skipped, len(topics)-reviewed-skipped)
+	}
+	for i, topic := range topics {
+		fmt.Fprintf(out, "\n[%d/%d] %s\n", i+1, len(topics), topic.Title)
+		fmt.Fprintln(out, "Explain the key ideas and an example from memory.")
+		fmt.Fprintln(out, "Try recalling first, then check your source before rating.")
+		if topic.Source != "" {
+			fmt.Fprintf(out, "Source: %s\n", topic.Source)
+		}
+		fmt.Fprintln(out, "\n1 Again (forgot)  2 Hard  3 Good  4 Easy")
+		for {
+			fmt.Fprint(out, "Rating [1-4], [s]kip, [q]uit: ")
+			if !scanner.Scan() {
+				if err := scanner.Err(); err != nil {
+					return err
+				}
+				finish()
+				return nil
+			}
+			input := strings.ToLower(strings.TrimSpace(scanner.Text()))
+			if input == "q" || input == "quit" {
+				finish()
+				return nil
+			}
+			if input == "s" || input == "skip" {
+				skipped++
+				break
+			}
+			value, err := strconv.Atoi(input)
+			if err != nil || !fsrs.Rating(value).Valid() {
+				fmt.Fprintln(out, "Enter 1-4, s to skip, or q to quit.")
+				continue
+			}
+			if err := store.RecordReview(topic.ID, fsrs.Rating(value), time.Now()); err != nil {
+				return err
+			}
+			reviewed++
+			fmt.Fprintf(out, "Next review: %s\n", store.GetTopic(topic.ID).Card.Due.Format("Jan 2, 2006"))
+			break
+		}
+	}
+	finish()
+	return nil
+}
+
 func init() {
+	reviewCmd.Flags().String("tag", "", "Review only topics with this tag")
+	reviewCmd.Flags().Int("rating", 0, "Record a rating (1-4) for a single topic without prompting")
 	rootCmd.AddCommand(reviewCmd)
 }

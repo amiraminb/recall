@@ -2,57 +2,69 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/spf13/cobra"
 )
 
 var editCmd = &cobra.Command{
-	GroupID: "notes",
+	GroupID: "managing",
 	Use:     "edit <topic-title>",
-	Short:   "Open a topic in $EDITOR to update your notes",
-	Long: `Open a topic file in your editor so you can update your notes.
+	Short:   "Update a topic's title, source, or tags",
+	Long: `Update topic details while keeping its review schedule and history.
+Use an empty value to clear a source or tags. --tag replaces the tags.
 
-Example:
-  recall edit "Docker Networking"`,
+Examples:
+  recall edit "Go interfaces" --source "https://go.dev/tour/methods/9"
+  recall edit "Docker" --title "Docker Networking" --tag devops,networking
+  recall edit "Docker Networking" --source ""`,
 	Args:              cobra.ExactArgs(1),
 	ValidArgsFunction: completeTopicTitles,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		wikiPath, err := getWikiPath()
+		if !cmd.Flags().Changed("title") && !cmd.Flags().Changed("source") && !cmd.Flags().Changed("tag") {
+			return fmt.Errorf("choose what to update: --title, --source, or --tag")
+		}
+		store, err := getStorage()
 		if err != nil {
 			return err
 		}
-
-		title := args[0]
-		filePath, err := resolveTopicPath(wikiPath, title)
+		topic, err := resolveTopic(store, args[0])
 		if err != nil {
 			return err
 		}
-
-		if err := openEditor(filePath); err != nil {
+		updated := *topic
+		if cmd.Flags().Changed("title") {
+			title, _ := cmd.Flags().GetString("title")
+			title = strings.TrimSpace(title)
+			if title == "" {
+				return fmt.Errorf("topic title cannot be empty")
+			}
+			for _, match := range store.FindTopicsByTitle(title) {
+				if match.ID != topic.ID {
+					return fmt.Errorf("topic %q already exists", title)
+				}
+			}
+			updated.Title = title
+		}
+		if cmd.Flags().Changed("source") {
+			source, _ := cmd.Flags().GetString("source")
+			updated.Source = strings.TrimSpace(source)
+		}
+		if cmd.Flags().Changed("tag") {
+			tags, _ := cmd.Flags().GetStringSlice("tag")
+			updated.Tags = cleanTags(tags)
+		}
+		if err := store.UpdateTopic(&updated); err != nil {
 			return err
 		}
-
-		fmt.Printf("Editing %s\n", filePath)
+		fmt.Fprintf(cmd.OutOrStdout(), "Updated: %s\n", updated.Title)
 		return nil
 	},
 }
 
-func openEditor(filePath string) error {
-	editor := strings.TrimSpace(os.Getenv("EDITOR"))
-	if editor == "" {
-		editor = "nvim"
-	}
-
-	cmd := exec.Command(editor, filePath)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
-
 func init() {
+	editCmd.Flags().String("title", "", "New topic title")
+	editCmd.Flags().String("source", "", "Source URL or reference")
+	editCmd.Flags().StringSlice("tag", nil, "Replace tags, comma-separated or repeated")
 	rootCmd.AddCommand(editCmd)
 }

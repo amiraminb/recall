@@ -168,7 +168,7 @@ func TestLoadTolerLegacyFileWithoutKind(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	store, err := NewStorage(dir)
+	store, err := NewStorage(srsDir)
 	if err != nil {
 		t.Fatalf("NewStorage on legacy data: %v", err)
 	}
@@ -260,7 +260,7 @@ func TestSavedDataRoundTrips(t *testing.T) {
 		t.Fatalf("AddReview: %v", err)
 	}
 
-	raw, err := os.ReadFile(filepath.Join(dir, ".srs", "reviews.json"))
+	raw, err := os.ReadFile(filepath.Join(dir, "reviews.json"))
 	if err != nil {
 		t.Fatalf("ReadFile: %v", err)
 	}

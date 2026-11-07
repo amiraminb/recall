@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/spf13/cobra"
 )
@@ -22,6 +23,7 @@ Output:
   #devops (5)
   #algorithms (3)
   #k8s (2)`,
+	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		store, err := getStorage()
 		if err != nil {
@@ -30,13 +32,18 @@ Output:
 
 		tags := store.GetAllTags()
 		if len(tags) == 0 {
-			fmt.Println("No tags found.")
+			fmt.Fprintln(cmd.OutOrStdout(), "No tags found.")
 			return nil
 		}
 
-		fmt.Println("Tags:")
-		for tag, count := range tags {
-			fmt.Printf("  #%s (%d)\n", tag, count)
+		var names []string
+		for tag := range tags {
+			names = append(names, tag)
+		}
+		slices.Sort(names)
+		fmt.Fprintln(cmd.OutOrStdout(), "Tags:")
+		for _, tag := range names {
+			fmt.Fprintf(cmd.OutOrStdout(), "  #%s (%d)\n", tag, tags[tag])
 		}
 
 		return nil

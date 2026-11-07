@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"slices"
 	"strings"
 	"time"
@@ -34,7 +33,7 @@ var historyCmd = &cobra.Command{
 	Short:   "Show what you studied and how you rated it",
 	Long: `Display history for all topics or a specific topic.
 
-Without arguments, shows all topics with their read status, first read date, and next due date.
+Without arguments, lists all topics and their next review dates.
 With a topic title, shows the complete review history for that topic.
 
 Examples:
@@ -48,35 +47,8 @@ Examples:
 			return err
 		}
 
-		// No args: show all topics with status
 		if len(args) == 0 {
-			topics := store.GetAllTopics()
-			if len(topics) == 0 {
-				fmt.Println("No topics tracked yet.")
-				return nil
-			}
-
-			now := time.Now()
-			table := tablewriter.NewTable(os.Stdout)
-			table.Header("Topic", "Tags", "Read Date", "Due Date")
-
-			var rows [][]any
-			for _, t := range topics {
-				tags := strings.Join(sortedTags(t.Tags), ", ")
-				readDate := "-"
-
-				if t.Card.State != fsrs.New {
-					history := store.GetReviewHistory(t.ID)
-					if len(history) > 0 {
-						readDate = history[0].ReviewedAt.Format("Jan 2, 2006")
-					}
-				}
-
-				rows = append(rows, []any{t.Title, tags, readDate, colorHistoryDueDate(t.Card.Due, now)})
-			}
-
-			table.Bulk(rows)
-			table.Render()
+			printTopics(cmd.OutOrStdout(), filterTopics(store.GetAllTopics(), ""), time.Now())
 			return nil
 		}
 
@@ -88,14 +60,21 @@ Examples:
 		}
 
 		history := store.GetReviewHistory(topic.ID)
+		out := cmd.OutOrStdout()
+		fmt.Fprintf(out, "History for: %s\nAdded: %s\nNext review: %s\n", topic.Title, topic.Created.Format("Jan 2, 2006"), topic.Card.Due.Format("Jan 2, 2006"))
+		if topic.Source != "" {
+			fmt.Fprintf(out, "Source: %s\n", topic.Source)
+		}
+		if len(topic.Tags) > 0 {
+			fmt.Fprintf(out, "Tags: %s\n", strings.Join(topic.Tags, ", "))
+		}
 		if len(history) == 0 {
-			fmt.Printf("No history for: %s\n", title)
+			fmt.Fprintln(out, "\nNo reviews yet.")
 			return nil
 		}
 
-		fmt.Printf("History for: %s\n\n", title)
-
-		table := tablewriter.NewTable(os.Stdout)
+		fmt.Fprintln(out)
+		table := tablewriter.NewTable(out)
 		table.Header("Date", "Type", "Rating")
 
 		var rows [][]any

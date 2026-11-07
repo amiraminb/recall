@@ -1,8 +1,7 @@
 # Recall
 
-Spaced repetition for your wiki notes. Never forget what you learn.
-
-Recall scans your markdown wiki for topics marked with `review: true` in YAML frontmatter, tracks them using the FSRS algorithm, and reminds you when it's time to review.
+Remember what you learn. Add something you've studied, review it from memory,
+and let spaced repetition handle the timing.
 
 ## Installation
 
@@ -18,84 +17,111 @@ cd recall
 go build ./cmd/recall/
 ```
 
-## Quick Start
+## Quick start
 
-1. Initialize with your wiki path:
+After reading, watching, or practicing something:
+
 ```bash
-recall init ~/wiki
+recall add "TCP handshake"
 ```
 
-2. Mark topics for review using YAML frontmatter:
-```markdown
----
-tags:
-  - devops
-  - k8s
-review: true
----
-# Kubernetes Architecture
+That's it. Your first review is tomorrow. No setup is required.
 
-Content about kubernetes...
-```
+Each day:
 
-3. Scan your wiki:
 ```bash
-recall scan
+recall          # See what's due today
+recall review   # Work through the queue, most overdue first
 ```
 
-4. Check what's due:
+For each topic, explain what you remember **before checking your source**.
+Then rate your recall. Recall saves each rating and schedules the next review.
+Use `s` to skip a topic or `q` to finish early; you can resume with `recall review`.
+
+## Recommended flow
+
+1. **Study anywhere.** Read a chapter, finish a lesson, or practice a skill.
+2. **Add a focused topic.** Prefer “TCP three-way handshake” over “Networking.”
+3. **Optionally add a source and tags.** Keep a reference handy and organize topics.
+4. **Review when due.** Explain, solve, or sketch from memory, then check your work.
+5. **Rate your actual recall.** FSRS adapts the next review date to your answer.
+
+Adding a topic means you've studied it. It schedules an initial recall attempt
+for tomorrow without assigning a rating. The first actual review initializes
+FSRS; later reviews adapt the interval.
+
+### Sources and tags
+
+Only the title is required. Optional details make reviews easier:
+
 ```bash
-recall due
+recall add "TCP handshake" \
+  --source "https://www.rfc-editor.org/rfc/rfc9293.html" \
+  --tag networking,protocols
+
+recall add "Database indexes" --source "Designing Data-Intensive Applications, chapter 3"
 ```
 
-5. Review a topic:
-```bash
-recall review "Kubernetes Architecture"
-```
+A source can be a web URL or a reference such as a book chapter. Recall displays
+it during reviews. `recall open "TCP handshake"` opens an attached web URL.
+
+Run `recall add` without a title for a simple title prompt. Titles are matched
+case-insensitively; adding a duplicate reports the existing topic.
 
 ## Commands
 
+| Command | Description |
+|---|---|
+| `recall` | Today's queue and the next action |
+| `recall add "Topic"` | Add a studied topic; first review tomorrow |
+| `recall review` | Review today's queue interactively |
+| `recall review "Topic"` | Review a specific topic, even before it's due |
+| `recall review --tag go` | Review due topics with a tag |
+| `recall review "Topic" --rating 3` | Record a rating without prompting |
+| `recall due --week` | Show reviews due over the next seven days |
+| `recall due --tag go` | Show due topics with a tag |
+| `recall list` | List all topics and their next review dates |
+| `recall list --tag go` | List topics with a tag |
+| `recall edit "Topic" --source "Book chapter 3"` | Update a topic's details |
+| `recall open "Topic"` | Open the attached source URL |
+| `recall history "Topic"` | Show topic details and review history |
+| `recall history` | List all topics, like `recall list` |
+| `recall tags` | List tags and topic counts |
+| `recall remove "Topic"` | Remove a topic from the schedule |
+
+`recall edit` accepts `--title`, `--source`, and `--tag`.
+Editing preserves the topic's schedule and history. `--tag` replaces its tags;
+an empty value clears the source or tags.
+
 ```bash
-recall -h
+recall edit "TCP handshake" --tag networking --source "RFC 9293"
+recall edit "TCP handshake" --title "TCP three-way handshake"
 ```
 
-**Setup**
+Use `recall --help` or `recall <command> --help` for details.
 
-| Command                | Description                                   |
-|------------------------|-----------------------------------------------|
-| recall init <path>     | Point recall at your wiki directory           |
-| recall scan            | Pick up notes newly flagged with review: true |
+## Ratings and scheduling
 
-**Reviewing**
+Recall uses [FSRS](https://github.com/open-spaced-repetition/fsrs4anki)
+(Free Spaced Repetition Scheduler).
 
-| Command                | Description                                   |
-|------------------------|-----------------------------------------------|
-| recall due             | List what needs revisiting, most overdue first|
-| recall due --week      | Show topics due this week                     |
-| recall due --tag <tag> | Filter by tag                                 |
-| recall read <title>    | Log a first study session, schedule review 1  |
-| recall review <title>  | Rate your recall and set the next review date |
+| Rating | Meaning |
+|---|---|
+| **1 — Again** | Couldn't recall it; needed to relearn |
+| **2 — Hard** | Recalled it, but with difficulty |
+| **3 — Good** | Recalled it with some effort |
+| **4 — Easy** | Recalled it effortlessly |
 
-**Working with a topic**
+Rate what you remembered before checking the source, rather than how familiar
+the material feels after rereading it. Skipping leaves the schedule unchanged.
 
-| Command                | Description                                   |
-|------------------------|-----------------------------------------------|
-| recall note <title>    | Print a topic's notes so you can reread them  |
-| recall edit <title>    | Open a topic in $EDITOR to update your notes  |
-| recall open <title>    | Open a topic's first link in your browser     |
+The target retention is `0.9`, with a maximum interval of `365` days.
+Late reviews use the elapsed time since your last review when scheduling.
+The daily queue includes everything due by the end of your local calendar day.
 
-**Managing what is tracked**
+## Shell completion
 
-| Command                | Description                                   |
-|------------------------|-----------------------------------------------|
-| recall history         | Show what you studied and how you rated it    |
-| recall history <title> | Show full review history for one topic        |
-| recall tags            | List tags and how many topics use each        |
-| recall remove <title>  | Stop tracking a topic (your note is untouched)|
-
-## Shell Completion
-
-Enable zsh tab-completion for topic titles (matches wiki filenames):
+Topic completion uses the topics you've added:
 
 ```bash
 recall completion zsh > "${fpath[1]}/_recall"
@@ -103,113 +129,28 @@ recall completion zsh > "${fpath[1]}/_recall"
 
 Restart your shell or run `autoload -Uz compinit && compinit` afterward.
 
-## Topic Format
+## Data storage and upgrading
 
-Mark any markdown file for review using YAML frontmatter:
+Topics, sources, tags, and review history are stored in:
 
-```markdown
----
-id: "Topic Title"
-tags:
-  - tag1
-  - tag2
-review: true
----
-
-Your content here...
+```text
+~/.local/share/recall/reviews.json
 ```
 
-- `review: true` - Marks the file as a reviewable topic
-- `tags` - Categorize topics (e.g., leetcode, architecture)
+If `XDG_DATA_HOME` is set to an absolute path, Recall uses
+`$XDG_DATA_HOME/recall/reviews.json` instead. Back up this file to preserve your
+topics and schedule.
 
-The topic title is taken from the `id` field in frontmatter, or the filename if not set.
+When upgrading from the wiki-based version, Recall reads the old configuration
+at `~/.config/recall/config.json` and copies the existing `.srs/reviews.json` into
+standalone storage on first use. Topic IDs, tags, schedules, and review history
+are preserved. Existing standalone data takes precedence, and the original data
+is retained. Note contents and links are not imported; attach sources with
+`recall edit "Topic" --source "..."`.
 
-## FSRS Algorithm
-
-Recall uses [FSRS](https://github.com/open-spaced-repetition/fsrs4anki) (Free Spaced Repetition Scheduler), the same algorithm used in Anki. When reviewing, rate your recall:
-
-| Rating    | Meaning              | Effect           |
-|-----------|----------------------|------------------|
-| 1 - Again | Forgot completely    | Reset interval   |
-| 2 - Hard  | Difficult to recall  | Shorter interval |
-| 3 - Good  | Recalled with effort | Normal interval  |
-| 4 - Easy  | Effortless recall    | Longer interval  |
-
-Default scheduling settings:
-
-- Target retention: `0.9`
-- Maximum interval: `365` days (1 year)
-
-Reviewing after the due date is accounted for rather than punished. Recalling
-something you had nearly forgotten is stronger evidence of retention than an
-on-time review, so a late success earns a longer next interval. A late lapse
-still pulls the interval back down.
-
-## Workflow
-
-### When you learn something new
-
-1. **Take notes in your wiki:**
-```markdown
----
-tags:
-  - devops
-  - docker
-review: true
----
-# Docker Networking
-
-- Bridge network: default, containers on same host
-- Host network: shares host's network stack
-- Overlay: multi-host communication
-```
-
-2. **Run scan to track it:**
-```bash
-recall scan
-```
-
-3. **Mark as read after studying:**
-```bash
-recall read "Docker Networking"
-```
-Rate your understanding (1-4). FSRS schedules the first review interval dynamically based on that rating.
-
-### Daily routine
-
-1. **Check what's due:**
-```bash
-recall due
-```
-
-2. **For each due topic:**
-   - Open the file, read your notes
-   - Run review:
-   ```bash
-   recall review "Docker Networking"
-   ```
-   - Rate how well you remembered (1-4)
-
-3. **FSRS schedules next review:**
-   - Good recall → longer interval growth over time (actual day counts vary by your review history)
-   - Poor recall → shorter interval (reset or reduced)
-
-### Summary
-
-| Action | When |
-|--------|------|
-| Add frontmatter with `review: true` | When learning something new |
-| `recall scan` | After adding new topics |
-| `recall due` | Daily - see what needs attention |
-| `recall read "Topic"` | First time reading a topic |
-| `recall open "Topic"` | Open the first link in a topic |
-| `recall note "Topic"` | Print the notes for a topic |
-| `recall review "Topic"` | For topics due for review |
-
-## Data Storage
-
-- Config: `~/.config/recall/config.json`
-- Review data: `<wiki>/.srs/reviews.json`
+The old `init`, `scan`, `read`, and `note` commands have been replaced by the
+topic-first flow. Use `recall add` to track new learning and `recall review` to
+review any topic, including migrated topics awaiting their first review.
 
 ## License
 

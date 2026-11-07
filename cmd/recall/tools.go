@@ -1,169 +1,114 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
-	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
+	"time"
 
 	"github.com/amiraminb/recall/internal/config"
-	"github.com/amiraminb/recall/internal/fsrs"
 	"github.com/amiraminb/recall/internal/storage"
+	"github.com/spf13/cobra"
 )
 
 var errTopicNotTracked = errors.New("topic not tracked")
 
-// expandPath resolves a leading ~ and returns an absolute path so a config
-// written on one machine does not silently point somewhere else on another.
-func expandPath(path string) (string, error) {
-	if strings.HasPrefix(path, "~") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", err
-		}
-		path = filepath.Join(home, strings.TrimPrefix(path, "~"))
-	}
-	return filepath.Abs(path)
-}
-
-func getWikiPath() (string, error) {
-	path, err := config.GetWikiPath()
-	if err != nil {
-		return "", err
-	}
-	if path == "" {
-		return "", fmt.Errorf("wiki path not configured. Run: recall init <path>")
-	}
-
-	if _, err := os.Stat(path); err != nil {
-		return "", fmt.Errorf("configured wiki path is unreachable: %s\nRun: recall init <path>", path)
-	}
-
-	return path, nil
-}
-
 func getStorage() (*storage.Storage, error) {
-	wikiPath, err := getWikiPath()
+	dataDir, err := config.DataDir()
 	if err != nil {
 		return nil, err
 	}
-	return storage.NewStorage(wikiPath)
+	if _, err := os.Stat(filepath.Join(dataDir, "reviews.json")); err == nil {
+		return storage.NewStorage(dataDir)
+	} else if !os.IsNotExist(err) {
+		return nil, err
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, err
+	}
+	if cfg != nil && cfg.WikiPath != "" {
+		if err := storage.MigrateLegacy(cfg.WikiPath, dataDir); err != nil {
+			return nil, err
+		}
+	}
+	return storage.NewStorage(dataDir)
 }
 
-// Rejects blank input, which fmt.Scanln would silently leave as rating 0.
-func promptRating(in io.Reader) (fsrs.Rating, error) {
-	line, err := bufio.NewReader(in).ReadString('\n')
-	if err != nil && line == "" {
-		return 0, fmt.Errorf("no rating entered")
-	}
-
-	value, err := strconv.Atoi(strings.TrimSpace(line))
-	if err != nil {
-		return 0, fmt.Errorf("rating must be a number from 1 to 4")
-	}
-
-	rating := fsrs.Rating(value)
-	if !rating.Valid() {
-		return 0, fmt.Errorf("rating must be from 1 to 4, got %d", value)
-	}
-
-	return rating, nil
-}
-
-// Uses the tracked path when available so a topic resolves without re-walking
-// the wiki, falling back to a filename search for notes that are not tracked.
-func resolveTopicPath(wikiPath, title string) (string, error) {
-	store, err := getStorage()
-	if err != nil {
-		return "", err
-	}
-
-	topic, err := resolveTopic(store, title)
-	if err != nil {
-		if !errors.Is(err, errTopicNotTracked) {
-			return "", err
-		}
-
-		path, err := findTopicFile(wikiPath, title)
-		if err != nil {
-			return "", err
-		}
-		if path == "" {
-			return "", fmt.Errorf("topic not found: %s", title)
-		}
-		return path, nil
-	}
-
-	path := filepath.Join(wikiPath, topic.File)
-	if _, err := os.Stat(path); err != nil {
-		return "", fmt.Errorf("file missing for %q: %s (run 'recall scan')", title, topic.File)
-	}
-	return path, nil
-}
-
-// Accepts a title or, when several notes share one, the relative file path that
-// the ambiguity error reports.
-func resolveTopic(store *storage.Storage, nameOrPath string) (*storage.Topic, error) {
-	if topic := store.GetTopicByFile(filepath.ToSlash(nameOrPath)); topic != nil {
+// IDs also disambiguate titles imported from older versions.
+func resolveTopic(store *storage.Storage, name string) (*storage.Topic, error) {
+	name = strings.TrimSpace(name)
+	if topic := store.GetTopic(name); topic != nil {
 		return topic, nil
 	}
-
-	matches := store.FindTopicsByTitle(nameOrPath)
-
+	if topic := store.GetTopicByFile(filepath.ToSlash(name)); topic != nil {
+		return topic, nil
+	}
+	matches := store.FindTopicsByTitle(name)
 	switch len(matches) {
 	case 0:
-		return nil, fmt.Errorf("%w: %s (run 'recall scan' first)", errTopicNotTracked, nameOrPath)
+		return nil, fmt.Errorf("%w: %s (add it with 'recall add %q')", errTopicNotTracked, name, name)
 	case 1:
 		return matches[0], nil
 	}
-
-	var files []string
-	for _, m := range matches {
-		files = append(files, m.File)
+	var choices []string
+	for _, topic := range matches {
+		choices = append(choices, fmt.Sprintf("%s  %s", topic.ID, topic.File))
 	}
-	return nil, fmt.Errorf("%q matches %d tracked notes; pass one of these paths instead:\n  %s",
-		nameOrPath, len(matches), strings.Join(files, "\n  "))
+	return nil, fmt.Errorf("%q matches %d topics; use an ID instead:\n  %s", name, len(matches), strings.Join(choices, "\n  "))
 }
 
-func listWikiTitles(wikiPath string) ([]string, error) {
-	var titles []string
-	seen := make(map[string]bool)
-
-	err := filepath.WalkDir(wikiPath, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if d.IsDir() {
-			if strings.HasPrefix(d.Name(), ".") {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		if filepath.Ext(d.Name()) != ".md" {
-			return nil
-		}
-
-		baseName := strings.TrimSuffix(d.Name(), ".md")
-		if baseName == "" || seen[baseName] {
-			return nil
-		}
-
-		seen[baseName] = true
-		titles = append(titles, baseName)
-		return nil
-	})
-	if err != nil {
-		return nil, err
+func completeTopicTitles(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
+	store, err := getStorage()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+	prefix := strings.ToLower(toComplete)
+	seen := make(map[string]bool)
+	var matches []string
+	for _, topic := range store.GetAllTopics() {
+		if strings.HasPrefix(strings.ToLower(topic.Title), prefix) && !seen[topic.Title] {
+			matches = append(matches, topic.Title)
+			seen[topic.Title] = true
+		}
+	}
+	slices.Sort(matches)
+	return matches, cobra.ShellCompDirectiveNoFileComp
+}
 
-	slices.Sort(titles)
-	return titles, nil
+func cleanTags(tags []string) []string {
+	var cleaned []string
+	for _, tag := range tags {
+		tag = strings.TrimSpace(tag)
+		if tag != "" && !slices.Contains(cleaned, tag) {
+			cleaned = append(cleaned, tag)
+		}
+	}
+	return cleaned
+}
+
+func filterTopics(topics []storage.Topic, tag string) []storage.Topic {
+	var filtered []storage.Topic
+	for _, topic := range topics {
+		if tag == "" || slices.Contains(topic.Tags, tag) {
+			filtered = append(filtered, topic)
+		}
+	}
+	slices.SortFunc(filtered, func(a, b storage.Topic) int {
+		if order := a.Card.Due.Compare(b.Card.Due); order != 0 {
+			return order
+		}
+		return strings.Compare(a.Title, b.Title)
+	})
+	return filtered
+}
+
+func endOfDay(now time.Time) time.Time {
+	return time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location()).Add(-time.Nanosecond)
 }

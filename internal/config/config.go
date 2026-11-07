@@ -10,6 +10,18 @@ type Config struct {
 	WikiPath string `json:"wiki_path"`
 }
 
+// DataDir returns the standalone directory used for topics and review history.
+func DataDir() (string, error) {
+	if base := os.Getenv("XDG_DATA_HOME"); filepath.IsAbs(base) {
+		return filepath.Join(base, "recall"), nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".local", "share", "recall"), nil
+}
+
 func DefaultConfigPath() string {
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".config", "recall", "config.json")
@@ -32,31 +44,4 @@ func Load() (*Config, error) {
 	}
 
 	return cfg, nil
-}
-
-func Save(cfg *Config) error {
-	path := DefaultConfigPath()
-
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-
-	data, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(path, data, 0o644)
-}
-
-func GetWikiPath() (string, error) {
-	cfg, err := Load()
-	if err != nil {
-		return "", err
-	}
-	if cfg == nil || cfg.WikiPath == "" {
-		return "", nil
-	}
-	return cfg.WikiPath, nil
 }

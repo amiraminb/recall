@@ -9,14 +9,10 @@ import (
 var removeCmd = &cobra.Command{
 	GroupID: "managing",
 	Use:     "remove <topic-title>",
-	Short:   "Stop tracking a topic (your note is untouched)",
+	Short:   "Remove a topic from your review schedule",
 	Long: `Stop tracking a topic and remove it from your review schedule.
 
-Use this to clean up orphaned topics (files that were renamed or deleted)
-or topics you no longer want to review.
-
-Note: This only removes the topic from recall's tracking. Your actual
-note file is not affected.
+Use this for topics you no longer want to review.
 
 Example:
   recall remove "Old Topic"`,
@@ -34,11 +30,12 @@ Example:
 			return err
 		}
 
+		title = topic.Title
 		if err := store.RemoveTopic(topic.ID); err != nil {
 			return err
 		}
 
-		fmt.Printf("Removed: %s\n", title)
+		fmt.Fprintf(cmd.OutOrStdout(), "Removed: %s\n", title)
 		return nil
 	},
 }
