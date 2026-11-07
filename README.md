@@ -115,7 +115,7 @@ Recall uses [FSRS](https://github.com/open-spaced-repetition/fsrs4anki)
 Rate what you remembered before checking the source, rather than how familiar
 the material feels after rereading it. Skipping leaves the schedule unchanged.
 
-The target retention is `0.9`, with a maximum interval of `365` days.
+The target retention is `0.9`, with a maximum interval of `36,500` days (100 years), matching Anki's default.
 Late reviews use the elapsed time since your last review when scheduling.
 The daily queue includes everything due by the end of your local calendar day.
 

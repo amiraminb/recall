@@ -49,7 +49,7 @@ type Parameters struct {
 func DefaultParameters() Parameters {
 	return Parameters{
 		RequestRetention: 0.9,
-		MaximumInterval:  365,
+		MaximumInterval:  36500,
 		Decay:            -0.5,
 		W: []float64{
 			0.4072, 1.1829, 3.1262, 15.4722, // Initial stability for each rating
