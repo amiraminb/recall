@@ -12,14 +12,14 @@ type Config struct {
 
 // DataDir returns the standalone directory used for topics and review history.
 func DataDir() (string, error) {
-	if base := os.Getenv("XDG_DATA_HOME"); filepath.IsAbs(base) {
+	if base := os.Getenv("XDG_CONFIG_HOME"); filepath.IsAbs(base) {
 		return filepath.Join(base, "recall"), nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".local", "share", "recall"), nil
+	return filepath.Join(home, ".config", "recall"), nil
 }
 
 func DefaultConfigPath() string {
